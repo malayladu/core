@@ -1,8 +1,13 @@
 import ItemList from 'flarum/utils/ItemList';
 import Alert from 'flarum/components/Alert';
+import Button from 'flarum/components/Button';
+import RequestErrorModal from 'flarum/components/RequestErrorModal';
+import ConfirmPasswordModal from 'flarum/components/ConfirmPasswordModal';
 import Translator from 'flarum/Translator';
 import extract from 'flarum/utils/extract';
 import patchMithril from 'flarum/utils/patchMithril';
+import RequestError from 'flarum/utils/RequestError';
+import { extend } from 'flarum/extend';
 
 /**
  * The `App` class provides a container for an application, as well as various
@@ -121,6 +126,8 @@ export default class App {
    * @public
    */
   boot() {
+    this.translator.locale = this.locale;
+
     this.initializers.toArray().forEach(initializer => initializer(this));
   }
 
@@ -145,8 +152,6 @@ export default class App {
    * Set the <title> of the page.
    *
    * @param {String} title
-   * @param {Boolean} [separator] Whether or not to separate the given title and
-   *     the forum's title.
    * @public
    */
   setTitle(title) {
@@ -178,23 +183,33 @@ export default class App {
    * @return {Promise}
    * @public
    */
-  request(options) {
+  request(originalOptions) {
+    const options = Object.assign({}, originalOptions);
+
     // Set some default options if they haven't been overridden. We want to
     // authenticate all requests with the session token. We also want all
     // requests to run asynchronously in the background, so that they don't
     // prevent redraws from occurring.
-    options.config = options.config || this.session.authorize.bind(this.session);
     options.background = options.background || true;
+
+    extend(options, 'config', (result, xhr) => xhr.setRequestHeader('X-CSRF-Token', this.session.csrfToken));
+
+    // If the method is something like PATCH or DELETE, which not all servers
+    // and clients support, then we'll send it as a POST request with the
+    // intended method specified in the X-HTTP-Method-Override header.
+    if (options.method !== 'GET' && options.method !== 'POST') {
+      const method = options.method;
+      extend(options, 'config', (result, xhr) => xhr.setRequestHeader('X-HTTP-Method-Override', method));
+      options.method = 'POST';
+    }
 
     // When we deserialize JSON data, if for some reason the server has provided
     // a dud response, we don't want the application to crash. We'll show an
     // error message to the user instead.
-    options.deserialize = options.deserialize || (responseText => {
-      try {
-        return JSON.parse(responseText);
-      } catch (e) {
-        throw new Error('Oops! Something went wrong on the server. Please reload the page and try again.');
-      }
+    options.deserialize = options.deserialize || (responseText => responseText);
+
+    options.errorHandler = options.errorHandler || (error => {
+      throw error;
     });
 
     // When extracting the data from the response, we can check the server
@@ -202,48 +217,97 @@ export default class App {
     // awry.
     const original = options.extract;
     options.extract = xhr => {
-      const status = xhr.status;
-
-      if (status >= 500 && status <= 599) {
-        throw new Error('Oops! Something went wrong on the server. Please reload the page and try again.');
-      }
+      let responseText;
 
       if (original) {
-        return original(xhr.responseText);
+        responseText = original(xhr.responseText);
+      } else {
+        responseText = xhr.responseText || null;
       }
 
-      return xhr.responseText.length > 0 ? xhr.responseText : null;
+      const status = xhr.status;
+
+      if (status < 200 || status > 299) {
+        throw new RequestError(status, responseText, options, xhr);
+      }
+
+      if (xhr.getResponseHeader) {
+        const csrfToken = xhr.getResponseHeader('X-CSRF-Token');
+        if (csrfToken) app.session.csrfToken = csrfToken;
+      }
+
+      try {
+        return JSON.parse(responseText);
+      } catch (e) {
+        throw new RequestError(500, responseText, options, xhr);
+      }
     };
 
-    this.alerts.dismiss(this.requestError);
+    if (this.requestError) this.alerts.dismiss(this.requestError.alert);
 
     // Now make the request. If it's a failure, inspect the error that was
     // returned and show an alert containing its contents.
-    return m.request(options).then(null, response => {
-      if (response instanceof Error) {
-        this.alerts.show(this.requestError = new Alert({
-          type: 'error',
-          children: response.message
-        }));
+    const deferred = m.deferred();
+
+    m.request(options).then(response => deferred.resolve(response), error => {
+      this.requestError = error;
+
+      let children;
+
+      switch (error.status) {
+        case 422:
+          children = error.response.errors
+            .map(error => [error.detail, <br/>])
+            .reduce((a, b) => a.concat(b), [])
+            .slice(0, -1);
+          break;
+
+        case 401:
+        case 403:
+          children = app.translator.trans('core.lib.error.permission_denied_message');
+          break;
+
+        case 404:
+        case 410:
+          children = app.translator.trans('core.lib.error.not_found_message');
+          break;
+
+        case 429:
+          children = app.translator.trans('core.lib.error.rate_limit_exceeded_message');
+          break;
+
+        default:
+          children = app.translator.trans('core.lib.error.generic_message');
       }
 
-      throw response;
+      error.alert = new Alert({
+        type: 'error',
+        children,
+        controls: app.forum.attribute('debug') ? [
+          <Button className="Button Button--link" onclick={this.showDebug.bind(this, error)}>Debug</Button>
+        ] : undefined
+      });
+
+      try {
+        options.errorHandler(error);
+      } catch (error) {
+        this.alerts.show(error.alert);
+      }
+
+      deferred.reject(error);
     });
+
+    return deferred.promise;
   }
 
   /**
-   * Show alert error messages for each error returned in an API response.
-   *
-   * @param {Array} errors
-   * @public
+   * @param {RequestError} error
+   * @private
    */
-  alertErrors(errors) {
-    errors.forEach(error => {
-      this.alerts.show(new Alert({
-        type: 'error',
-        children: error.detail
-      }));
-    });
+  showDebug(error) {
+    this.alerts.dismiss(this.requestErrorAlert);
+
+    this.modal.show(new RequestErrorModal({error}));
   }
 
   /**
@@ -260,17 +324,5 @@ export default class App {
     const prefix = m.route.mode === 'pathname' ? app.forum.attribute('basePath') : '';
 
     return prefix + url + (queryString ? '?' + queryString : '');
-  }
-
-  /**
-   * Shortcut to translate the given key.
-   *
-   * @param {String} key
-   * @param {Object} input
-   * @return {String}
-   * @public
-   */
-  trans(key, input) {
-    return this.translator.trans(key, input);
   }
 }

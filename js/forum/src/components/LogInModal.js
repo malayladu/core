@@ -3,6 +3,8 @@ import ForgotPasswordModal from 'flarum/components/ForgotPasswordModal';
 import SignUpModal from 'flarum/components/SignUpModal';
 import Alert from 'flarum/components/Alert';
 import Button from 'flarum/components/Button';
+import LogInButtons from 'flarum/components/LogInButtons';
+import extractText from 'flarum/utils/extractText';
 
 /**
  * The `LogInModal` component displays a modal dialog with a login form.
@@ -13,8 +15,8 @@ import Button from 'flarum/components/Button';
  * - `password`
  */
 export default class LogInModal extends Modal {
-  constructor(...args) {
-    super(...args);
+  init() {
+    super.init();
 
     /**
      * The value of the email input.
@@ -36,24 +38,24 @@ export default class LogInModal extends Modal {
   }
 
   title() {
-    return app.trans('core.log_in');
+    return app.translator.trans('core.forum.log_in.title');
   }
 
   content() {
     return [
       <div className="Modal-body">
+        <LogInButtons/>
+
         <div className="Form Form--centered">
           <div className="Form-group">
-            <input className="FormControl" name="email" placeholder={app.trans('core.username_or_email')}
-              value={this.email()}
-              onchange={m.withAttr('value', this.email)}
+            <input className="FormControl" name="email" type="text" placeholder={extractText(app.translator.trans('core.forum.log_in.username_or_email_placeholder'))}
+              bidi={this.email}
               disabled={this.loading} />
           </div>
 
           <div className="Form-group">
-            <input className="FormControl" name="password" type="password" placeholder={app.trans('core.password')}
-              value={this.password()}
-              onchange={m.withAttr('value', this.password)}
+            <input className="FormControl" name="password" type="password" placeholder={extractText(app.translator.trans('core.forum.log_in.password_placeholder'))}
+              bidi={this.password}
               disabled={this.loading} />
           </div>
 
@@ -62,19 +64,19 @@ export default class LogInModal extends Modal {
               className: 'Button Button--primary Button--block',
               type: 'submit',
               loading: this.loading,
-              children: app.trans('core.log_in')
+              children: app.translator.trans('core.forum.log_in.submit_button')
             })}
           </div>
         </div>
       </div>,
       <div className="Modal-footer">
         <p className="LogInModal-forgotPassword">
-          <a onclick={this.forgotPassword.bind(this)}>{app.trans('core.forgot_password_link')}</a>
+          <a onclick={this.forgotPassword.bind(this)}>{app.translator.trans('core.forum.log_in.forgot_password_link')}</a>
         </p>
+
         {app.forum.attribute('allowSignUp') ? (
           <p className="LogInModal-signUp">
-            {app.trans('core.before_sign_up_link')}{' '}
-            <a onclick={this.signUp.bind(this)}>{app.trans('core.sign_up')}</a>
+            {app.translator.trans('core.forum.log_in.sign_up_text', {a: <a onclick={this.signUp.bind(this)}/>})}
           </p>
         ) : ''}
       </div>
@@ -84,6 +86,8 @@ export default class LogInModal extends Modal {
   /**
    * Open the forgot password modal, prefilling it with an email if the user has
    * entered one.
+   *
+   * @public
    */
   forgotPassword() {
     const email = this.email();
@@ -95,6 +99,8 @@ export default class LogInModal extends Modal {
   /**
    * Open the sign up modal, prefilling it with an email/username/password if
    * the user has entered one.
+   *
+   * @public
    */
   signUp() {
     const props = {password: this.password()};
@@ -116,25 +122,17 @@ export default class LogInModal extends Modal {
     const email = this.email();
     const password = this.password();
 
-    app.session.login(email, password).then(
-      null,
-      response => {
-        this.loading = false;
-
-        if (response && response.code === 'confirm_email') {
-          this.alert = Alert.component({
-            children: app.trans('core.email_confirmation_required', {email: response.email})
-          });
-        } else {
-          this.alert = Alert.component({
-            type: 'error',
-            children: app.trans('core.invalid_login')
-          });
-        }
-
-        m.redraw();
-        this.onready();
-      }
+    app.session.login(email, password, {errorHandler: this.onerror.bind(this)}).then(
+      () => window.location.reload(),
+      this.loaded.bind(this)
     );
+  }
+
+  onerror(error) {
+    if (error.status === 401) {
+      error.alert.props.children = app.translator.trans('core.forum.log_in.invalid_login_message');
+    }
+
+    super.onerror(error);
   }
 }

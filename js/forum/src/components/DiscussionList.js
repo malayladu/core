@@ -13,9 +13,7 @@ import Placeholder from 'flarum/components/Placeholder';
  *   to send along in the API request to get discussion results.
  */
 export default class DiscussionList extends Component {
-  constructor(...args) {
-    super(...args);
-
+  init() {
     /**
      * Whether or not discussion results are loading.
      *
@@ -48,14 +46,14 @@ export default class DiscussionList extends Component {
       loading = LoadingIndicator.component();
     } else if (this.moreResults) {
       loading = Button.component({
-        children: app.trans('core.load_more'),
+        children: app.translator.trans('core.forum.discussion_list.load_more_button'),
         className: 'Button',
         onclick: this.loadMore.bind(this)
       });
     }
 
     if (this.discussions.length === 0 && !this.loading) {
-      const text = 'Looks like there are no discussions here. Why don\'t you create a new one?';
+      const text = app.translator.trans('core.forum.discussion_list.empty_text');
       return (
         <div className="DiscussionList">
           {Placeholder.component({text})}
@@ -117,7 +115,7 @@ export default class DiscussionList extends Component {
     map.latest = '-lastTime';
     map.top = '-commentsCount';
     map.newest = '-startTime';
-    map.oldest = '+startTime';
+    map.oldest = 'startTime';
 
     return map;
   }

@@ -7,14 +7,14 @@ export default class NotificationsDropdown extends Dropdown {
     props.className = props.className || 'NotificationsDropdown';
     props.buttonClassName = props.buttonClassName || 'Button Button--flat';
     props.menuClassName = props.menuClassName || 'Dropdown-menu--right';
-    props.label = props.label || app.trans('core.notifications');
+    props.label = props.label || app.translator.trans('core.forum.notifications.tooltip');
     props.icon = props.icon || 'bell';
 
     super.initProps(props);
   }
 
-  constructor(...args) {
-    super(...args);
+  init() {
+    super.init();
 
     /**
      * Whether or not the notifications dropdown is visible.
@@ -27,10 +27,12 @@ export default class NotificationsDropdown extends Dropdown {
   }
 
   getButton() {
-    const unread = this.getUnreadCount();
+    const newNotifications = this.getNewCount();
     const vdom = super.getButton();
 
-    vdom.attrs.className += (unread ? ' unread' : '');
+    vdom.attrs.title = this.props.label;
+
+    vdom.attrs.className += (newNotifications ? ' new' : '');
     vdom.attrs.onclick = this.onclick.bind(this);
 
     return vdom;
@@ -69,6 +71,10 @@ export default class NotificationsDropdown extends Dropdown {
 
   getUnreadCount() {
     return app.session.user.unreadNotificationsCount();
+  }
+
+  getNewCount() {
+    return app.session.user.newNotificationsCount();
   }
 
   menuClick(e) {

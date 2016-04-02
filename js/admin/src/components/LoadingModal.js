@@ -10,7 +10,7 @@ export default class LoadingModal extends Modal {
   }
 
   title() {
-    return 'Please Wait...';
+    return app.translator.trans('core.admin.loading.title');
   }
 
   content() {

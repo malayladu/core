@@ -11,20 +11,20 @@ export default class ChangePasswordModal extends Modal {
   }
 
   title() {
-    return app.trans('core.change_password');
+    return app.translator.trans('core.forum.change_password.title');
   }
 
   content() {
     return (
       <div className="Modal-body">
         <div className="Form Form--centered">
-          <p className="helpText">{app.trans('core.change_password_help')}</p>
+          <p className="helpText">{app.translator.trans('core.forum.change_password.text')}</p>
           <div className="Form-group">
             {Button.component({
               className: 'Button Button--primary Button--block',
               type: 'submit',
               loading: this.loading,
-              children: app.trans('core.send_password_reset_email')
+              children: app.translator.trans('core.forum.change_password.send_button')
             })}
           </div>
         </div>
@@ -42,8 +42,8 @@ export default class ChangePasswordModal extends Modal {
       url: app.forum.attribute('apiUrl') + '/forgot',
       data: {email: app.session.user.email()}
     }).then(
-      () => this.hide(),
-      () => this.loading = false
+      this.hide.bind(this),
+      this.loaded.bind(this)
     );
   }
 }

@@ -9,9 +9,7 @@ import Button from 'flarum/components/Button';
  * @abstract
  */
 export default class Modal extends Component {
-  constructor(...args) {
-    super(...args);
-
+  init() {
     /**
      * An alert component to show below the header.
      *
@@ -100,7 +98,10 @@ export default class Modal extends Component {
    * Focus on the first input when the modal is ready to be used.
    */
   onready() {
-    this.$('form :input:first').focus().select();
+    this.$('form').find('input, select, textarea').first().focus().select();
+  }
+
+  onhide() {
   }
 
   /**
@@ -111,27 +112,28 @@ export default class Modal extends Component {
   }
 
   /**
-   * Show an alert describing errors returned from the API, and give focus to
+   * Stop loading.
+   */
+  loaded() {
+    this.loading = false;
+    m.redraw();
+  }
+
+  /**
+   * Show an alert describing an error returned from the API, and give focus to
    * the first relevant field.
    *
-   * @param {Object} response
+   * @param {RequestError} error
    */
-  handleErrors(response) {
-    const errors = response && response.errors;
-
-    if (errors) {
-      this.alert = new Alert({
-        type: 'error',
-        children: errors.map((error, k) => [error.detail, k < errors.length - 1 ? m('br') : ''])
-      });
-    }
+  onerror(error) {
+    this.alert = error.alert;
 
     m.redraw();
 
-    if (errors) {
-      this.$('form [name=' + errors[0].path + ']').select();
+    if (error.status === 422 && error.response.errors) {
+      this.$('form [name=' + error.response.errors[0].source.pointer.replace('/data/attributes/', '') + ']').select();
     } else {
-      this.$('form :input:first').select();
+      this.onready();
     }
   }
 }

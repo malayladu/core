@@ -2,6 +2,7 @@ import Component from 'flarum/Component';
 import LoadingIndicator from 'flarum/components/LoadingIndicator';
 import ItemList from 'flarum/utils/ItemList';
 import classList from 'flarum/utils/classList';
+import extractText from 'flarum/utils/extractText';
 import icon from 'flarum/helpers/icon';
 import DiscussionsSearchSource from 'flarum/components/DiscussionsSearchSource';
 import UsersSearchSource from 'flarum/components/UsersSearchSource';
@@ -16,15 +17,13 @@ import UsersSearchSource from 'flarum/components/UsersSearchSource';
  * `clearSearch` method on the controller.
  */
 export default class Search extends Component {
-  constructor(...args) {
-    super(...args);
-
+  init() {
     /**
      * The value of the search input.
      *
      * @type {Function}
      */
-    this.value = m.prop();
+    this.value = m.prop('');
 
     /**
      * Whether or not the search input has focus.
@@ -83,7 +82,7 @@ export default class Search extends Component {
       })}>
         <div className="Search-input">
           <input className="FormControl"
-            placeholder={app.trans('core.search_forum')}
+            placeholder={extractText(app.translator.trans('core.forum.header.search_placeholder'))}
             value={this.value()}
             oninput={m.withAttr('value', this.value)}
             onfocus={() => this.hasFocus = true}
@@ -132,7 +131,11 @@ export default class Search extends Component {
             break;
 
           case 13: // Return
-            m.route(this.getItem(this.index).find('a').attr('href'));
+            if (this.value()) {
+              m.route(this.getItem(this.index).find('a').attr('href'));
+            } else {
+              this.clear();
+            }
             this.$('input').blur();
             break;
 
@@ -172,6 +175,10 @@ export default class Search extends Component {
           search.searched.push(query);
           m.redraw();
         }, 250);
+      })
+
+      .on('focus', function() {
+        $(this).one('mouseup', e => e.preventDefault()).select();
       });
   }
 

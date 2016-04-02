@@ -21,8 +21,8 @@ import Button from 'flarum/components/Button';
  * - `post`
  */
 export default class CommentPost extends Post {
-  constructor(...args) {
-    super(...args);
+  init() {
+    super.init();
 
     /**
      * If the post has been hidden, then this flag determines whether or not its
@@ -48,9 +48,7 @@ export default class CommentPost extends Post {
         {this.isEditing()
           ? <div className="Post-preview" config={this.configPreview.bind(this)}/>
           : m.trust(this.props.post.contentHtml())}
-      </div>,
-      <footer className="Post-footer"><ul>{listItems(this.footerItems().toArray())}</ul></footer>,
-      <aside className="Post-actions"><ul>{listItems(this.actionItems().toArray())}</ul></aside>
+      </div>
     ];
   }
 
@@ -59,48 +57,21 @@ export default class CommentPost extends Post {
 
     const contentHtml = this.isEditing() ? '' : this.props.post.contentHtml();
 
+    // If the post content has changed since the last render, we'll run through
+    // all of the <script> tags in the content and evaluate them. This is
+    // necessary because TextFormatter outputs them for e.g. syntax highlighting.
     if (context.contentHtml !== contentHtml) {
-      if (typeof hljs === 'undefined') {
-        this.loadHljs();
-      } else {
-        this.$('pre code').each(function(i, elm) {
-          hljs.highlightBlock(elm);
-        });
-      }
+      this.$('.Post-body script').each(function() {
+        eval.call(window, $(this).text());
+      });
     }
 
     context.contentHtml = contentHtml;
   }
 
-  /**
-   * Load the highlight.js library and initialize highlighting when done.
-   *
-   * @private
-   */
-  loadHljs() {
-    const head = document.getElementsByTagName('head')[0];
-
-    const stylesheet = document.createElement('link');
-    stylesheet.type = 'text/css';
-    stylesheet.rel = 'stylesheet';
-    stylesheet.href = '//cdnjs.cloudflare.com/ajax/libs/highlight.js/8.7/styles/default.min.css';
-    head.appendChild(stylesheet);
-
-    const script = document.createElement('script');
-    script.type = 'text/javascript';
-    script.onload = () => {
-      hljs._ = {};
-      hljs.initHighlighting();
-    };
-    script.async = true;
-    script.src = '//cdnjs.cloudflare.com/ajax/libs/highlight.js/8.7/highlight.min.js';
-    head.appendChild(script);
-  }
-
   isEditing() {
     return app.composer.component instanceof EditPostComposer &&
-      app.composer.component.props.post === this.props.post &&
-      app.composer.position !== Composer.PositionEnum.MINIMIZED;
+      app.composer.component.props.post === this.props.post;
   }
 
   attrs() {
@@ -175,23 +146,5 @@ export default class CommentPost extends Post {
     }
 
     return items;
-  }
-
-  /**
-   * Build an item list for the post's footer.
-   *
-   * @return {ItemList}
-   */
-  footerItems() {
-    return new ItemList();
-  }
-
-  /**
-   * Build an item list for the post's actions.
-   *
-   * @return {ItemList}
-   */
-  actionItems() {
-    return new ItemList();
   }
 }

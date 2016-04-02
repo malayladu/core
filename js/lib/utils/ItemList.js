@@ -10,6 +10,37 @@ class Item {
  * by priority.
  */
 export default class ItemList {
+  constructor() {
+    /**
+     * The items in the list.
+     *
+     * @type {Object}
+     * @public
+     */
+    this.items = {};
+  }
+
+  /**
+   * Check whether an item is present in the list.
+   *
+   * @param key
+   * @returns {boolean}
+   */
+  has(key) {
+    return !!this.items[key];
+  }
+
+  /**
+   * Get the content of an item.
+   *
+   * @param {String} key
+   * @return {*}
+   * @public
+   */
+  get(key) {
+    return this.items[key].content;
+  }
+
   /**
    * Add an item to the list.
    *
@@ -20,7 +51,37 @@ export default class ItemList {
    * @public
    */
   add(key, content, priority = 0) {
-    this[key] = new Item(content, priority);
+    this.items[key] = new Item(content, priority);
+  }
+
+  /**
+   * Replace an item in the list, only if it is already present.
+   *
+   * @param {String} key
+   * @param {*} [content]
+   * @param {Integer} [priority]
+   * @public
+   */
+  replace(key, content = null, priority = null) {
+    if (this.items[key]) {
+      if (content !== null) {
+        this.items[key].content = content;
+      }
+
+      if (priority !== null) {
+        this.items[key].priority = priority;
+      }
+    }
+  }
+
+  /**
+   * Remove an item from the list.
+   *
+   * @param {String} key
+   * @public
+   */
+  remove(key) {
+    delete this.items[key];
   }
 
   /**
@@ -30,9 +91,9 @@ export default class ItemList {
    * @public
    */
   merge(items) {
-    for (const i in items) {
-      if (items.hasOwnProperty(i) && items[i] instanceof Item) {
-        this[i] = items[i];
+    for (const i in items.items) {
+      if (items.items.hasOwnProperty(i) && items.items[i] instanceof Item) {
+        this.items[i] = items.items[i];
       }
     }
   }
@@ -48,13 +109,13 @@ export default class ItemList {
   toArray() {
     const items = [];
 
-    for (const i in this) {
-      if (this.hasOwnProperty(i) && this[i] instanceof Item) {
-        this[i].content = Object(this[i].content);
+    for (const i in this.items) {
+      if (this.items.hasOwnProperty(i) && this.items[i] instanceof Item) {
+        this.items[i].content = Object(this.items[i].content);
 
-        this[i].content.itemName = i;
-        items.push(this[i]);
-        this[i].key = items.length;
+        this.items[i].content.itemName = i;
+        items.push(this.items[i]);
+        this.items[i].key = items.length;
       }
     }
 

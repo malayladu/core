@@ -9,9 +9,7 @@ import Discussion from 'flarum/models/Discussion';
  * notifications, grouped by discussion.
  */
 export default class NotificationList extends Component {
-  constructor(...args) {
-    super(...args);
-
+  init() {
     /**
      * Whether or not the notifications are loading.
      *
@@ -59,12 +57,12 @@ export default class NotificationList extends Component {
             {Button.component({
               className: 'Button Button--icon Button--link',
               icon: 'check',
-              title: app.trans('core.mark_all_as_read'),
+              title: app.translator.trans('core.forum.notifications.mark_all_as_read_tooltip'),
               onclick: this.markAllAsRead.bind(this)
             })}
           </div>
 
-          <h4 className="App-titleControl App-titleControl--text">{app.trans('core.notifications')}</h4>
+          <h4 className="App-titleControl App-titleControl--text">{app.translator.trans('core.forum.notifications.title')}</h4>
         </div>
 
         <div className="NotificationList-content">
@@ -98,7 +96,7 @@ export default class NotificationList extends Component {
               );
             })
             : !this.loading
-              ? <div className="NotificationList-empty">{app.trans('core.no_notifications')}</div>
+              ? <div className="NotificationList-empty">{app.translator.trans('core.forum.notifications.empty_text')}</div>
               : LoadingIndicator.component({className: 'LoadingIndicator--block'})}
         </div>
       </div>
@@ -110,20 +108,23 @@ export default class NotificationList extends Component {
    * been loaded.
    */
   load() {
-    if (app.cache.notifications && !app.session.user.unreadNotificationsCount()) {
+    if (app.cache.notifications && !app.session.user.newNotificationsCount()) {
       return;
     }
 
     this.loading = true;
     m.redraw();
 
-    app.store.find('notifications').then(notifications => {
-      app.session.user.pushAttributes({unreadNotificationsCount: 0});
-      app.cache.notifications = notifications.sort((a, b) => b.time() - a.time());
-
-      this.loading = false;
-      m.redraw();
-    });
+    app.store.find('notifications')
+      .then(notifications => {
+        app.session.user.pushAttributes({newNotificationsCount: 0});
+        app.cache.notifications = notifications.sort((a, b) => b.time() - a.time());
+      })
+      .catch(() => {})
+      .then(() => {
+        this.loading = false;
+        m.redraw();
+      });
   }
 
   /**
@@ -132,10 +133,13 @@ export default class NotificationList extends Component {
   markAllAsRead() {
     if (!app.cache.notifications) return;
 
-    app.cache.notifications.forEach(notification => {
-      if (!notification.isRead()) {
-        notification.save({isRead: true});
-      }
+    app.session.user.pushAttributes({unreadNotificationsCount: 0});
+
+    app.cache.notifications.forEach(notification => notification.pushAttributes({isRead: true}));
+
+    app.request({
+      url: app.forum.attribute('apiUrl') + '/notifications/read',
+      method: 'POST'
     });
   }
 }

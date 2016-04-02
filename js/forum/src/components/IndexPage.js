@@ -2,6 +2,7 @@ import { extend } from 'flarum/extend';
 import Page from 'flarum/components/Page';
 import ItemList from 'flarum/utils/ItemList';
 import listItems from 'flarum/helpers/listItems';
+import icon from 'flarum/helpers/icon';
 import DiscussionList from 'flarum/components/DiscussionList';
 import WelcomeHero from 'flarum/components/WelcomeHero';
 import DiscussionComposer from 'flarum/components/DiscussionComposer';
@@ -17,8 +18,8 @@ import SelectDropdown from 'flarum/components/SelectDropdown';
  * hero, the sidebar, and the discussion list.
  */
 export default class IndexPage extends Page {
-  constructor(...args) {
-    super(...args);
+  init() {
+    super.init();
 
     // If the user is returning from a discussion page, then take note of which
     // discussion they have just visited. After the view is rendered, we will
@@ -54,7 +55,7 @@ export default class IndexPage extends Page {
       app.cache.discussionList = new DiscussionList({params});
     }
 
-    app.history.push('index');
+    app.history.push('index', icon('bars'));
 
     this.bodyClass = 'App--index';
   }
@@ -97,14 +98,19 @@ export default class IndexPage extends Page {
 
     // Work out the difference between the height of this hero and that of the
     // previous hero. Maintain the same scroll position relative to the bottom
-    // of the hero so that the 'fixed' sidebar doesn't jump around.
-    const heroHeight = this.$('.Hero').outerHeight();
+    // of the hero so that the sidebar doesn't jump around.
+    const oldHeroHeight = app.cache.heroHeight;
+    const heroHeight = app.cache.heroHeight = this.$('.Hero').outerHeight();
     const scrollTop = app.cache.scrollTop;
 
     $('#app').css('min-height', $(window).height() + heroHeight);
-    $(window).scrollTop(scrollTop - (app.cache.heroHeight - heroHeight));
 
-    app.cache.heroHeight = heroHeight;
+    // Scroll to the remembered position. We do this after a short delay so that
+    // it happens after the browser has done its own "back button" scrolling,
+    // which isn't right. https://github.com/flarum/core/issues/835
+    const scroll = () => $(window).scrollTop(scrollTop - oldHeroHeight + heroHeight);
+    scroll();
+    setTimeout(scroll, 1);
 
     // If we've just returned from a discussion page, then the constructor will
     // have set the `lastDiscussion` property. If this is the case, we want to
@@ -143,11 +149,11 @@ export default class IndexPage extends Page {
    */
   sidebarItems() {
     const items = new ItemList();
-    const canStartDiscussion = app.forum.canStartDiscussion() || !app.session.user;
+    const canStartDiscussion = app.forum.attribute('canStartDiscussion') || !app.session.user;
 
     items.add('newDiscussion',
       Button.component({
-        children: canStartDiscussion ? app.trans('core.start_a_discussion') : 'Can\'t Start Discussion',
+        children: app.translator.trans(canStartDiscussion ? 'core.forum.index.start_discussion_button' : 'core.forum.index.cannot_start_discussion_button'),
         icon: 'edit',
         className: 'Button Button--primary IndexPage-newDiscussion',
         itemClassName: 'App-primaryControl',
@@ -180,7 +186,7 @@ export default class IndexPage extends Page {
     items.add('allDiscussions',
       LinkButton.component({
         href: app.route('index', params),
-        children: app.trans('core.all_discussions'),
+        children: app.translator.trans('core.forum.index.all_discussions_link'),
         icon: 'comments-o'
       }),
       100
@@ -198,16 +204,17 @@ export default class IndexPage extends Page {
    */
   viewItems() {
     const items = new ItemList();
+    const sortMap = app.cache.discussionList.sortMap();
 
     const sortOptions = {};
-    for (const i in app.cache.discussionList.sortMap()) {
-      sortOptions[i] = app.trans('core.sort_' + i);
+    for (const i in sortMap) {
+      sortOptions[i] = app.translator.trans('core.forum.index_sort.' + i + '_button');
     }
 
     items.add('sort',
       Select.component({
         options: sortOptions,
-        value: this.params().sort,
+        value: this.params().sort || Object.keys(sortMap)[0],
         onchange: this.changeSort.bind(this)
       })
     );
@@ -226,7 +233,7 @@ export default class IndexPage extends Page {
 
     items.add('refresh',
       Button.component({
-        title: app.trans('core.refresh'),
+        title: app.translator.trans('core.forum.index.refresh_tooltip'),
         icon: 'refresh',
         className: 'Button Button--icon',
         onclick: () => app.cache.discussionList.refresh()
@@ -236,7 +243,7 @@ export default class IndexPage extends Page {
     if (app.session.user) {
       items.add('markAllAsRead',
         Button.component({
-          title: app.trans('core.mark_all_as_read'),
+          title: app.translator.trans('core.forum.index.mark_all_as_read_tooltip'),
           icon: 'check',
           className: 'Button Button--icon',
           onclick: this.markAllAsRead.bind(this)
@@ -357,6 +364,10 @@ export default class IndexPage extends Page {
    * @return void
    */
   markAllAsRead() {
-    app.session.user.save({readTime: new Date()});
+    const confirmation = confirm(app.translator.trans('core.forum.index.mark_all_as_read_confirmation'));
+
+    if (confirmation) {
+      app.session.user.save({readTime: new Date()});
+    }
   }
 }

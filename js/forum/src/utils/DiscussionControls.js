@@ -55,14 +55,14 @@ export default {
         !app.session.user || discussion.canReply()
           ? Button.component({
             icon: 'reply',
-            children: app.session.user ? app.trans('core.reply') : app.trans('core.log_in_to_reply'),
+            children: app.translator.trans(app.session.user ? 'core.forum.discussion_controls.reply_button' : 'core.forum.discussion_controls.log_in_to_reply_button'),
             onclick: this.replyAction.bind(discussion, true, false)
           })
           : Button.component({
             icon: 'reply',
-            children: app.trans('core.cannot_reply'),
+            children: app.translator.trans('core.forum.discussion_controls.cannot_reply_button'),
             className: 'disabled',
-            title: app.trans('core.cannot_reply_help')
+            title: app.translator.trans('core.forum.discussion_controls.cannot_reply_text')
           })
       );
     }
@@ -85,7 +85,7 @@ export default {
     if (discussion.canRename()) {
       items.add('rename', Button.component({
         icon: 'pencil',
-        children: app.trans('core.rename'),
+        children: app.translator.trans('core.forum.discussion_controls.rename_button'),
         onclick: this.renameAction.bind(discussion)
       }));
     }
@@ -105,10 +105,25 @@ export default {
   destructiveControls(discussion) {
     const items = new ItemList();
 
-    if (discussion.canDelete()) {
+    if (!discussion.isHidden()) {
+      if (discussion.canHide()) {
+        items.add('hide', Button.component({
+          icon: 'trash-o',
+          children: app.translator.trans('core.forum.discussion_controls.delete_button'),
+          onclick: this.hideAction.bind(discussion)
+        }));
+      }
+    } else if (discussion.canDelete()) {
+      items.add('restore', Button.component({
+        icon: 'reply',
+        children: app.translator.trans('core.forum.discussion_controls.restore_button'),
+        onclick: this.restoreAction.bind(discussion),
+        disabled: discussion.commentsCount() === 0
+      }));
+
       items.add('delete', Button.component({
         icon: 'times',
-        children: app.trans('core.delete'),
+        children: app.translator.trans('core.forum.discussion_controls.delete_forever_button'),
         onclick: this.deleteAction.bind(discussion)
       }));
     }
@@ -174,37 +189,64 @@ export default {
   },
 
   /**
+   * Hide a discussion.
+   *
+   * @return {Promise}
+   */
+  hideAction() {
+    this.pushAttributes({ hideTime: new Date(), hideUser: app.session.user });
+
+    return this.save({ isHidden: true });
+  },
+
+  /**
+   * Restore a discussion.
+   *
+   * @return {Promise}
+   */
+  restoreAction() {
+    this.pushAttributes({ hideTime: null, hideUser: null });
+
+    return this.save({ isHidden: false });
+  },
+
+  /**
    * Delete the discussion after confirming with the user.
+   *
+   * @return {Promise}
    */
   deleteAction() {
-    if (confirm(extractText(app.trans('core.confirm_delete_discussion')))) {
-      this.delete();
-
-      // If there is a discussion list in the cache, remove this discussion.
-      if (app.cache.discussionList) {
-        app.cache.discussionList.removeDiscussion(this);
-      }
-
+    if (confirm(extractText(app.translator.trans('core.forum.discussion_controls.delete_confirmation')))) {
       // If we're currently viewing the discussion that was deleted, go back
       // to the previous page.
       if (app.viewingDiscussion(this)) {
         app.history.back();
       }
+
+      return this.delete().then(() => {
+        // If there is a discussion list in the cache, remove this discussion.
+        if (app.cache.discussionList) {
+          app.cache.discussionList.removeDiscussion(this);
+          m.redraw();
+        }
+      });
     }
   },
 
   /**
    * Rename the discussion.
+   *
+   * @return {Promise}
    */
   renameAction() {
     const currentTitle = this.title();
-    const title = prompt(extractText(app.trans('core.prompt_rename_discussion')), currentTitle);
+    const title = prompt(extractText(app.translator.trans('core.forum.discussion_controls.rename_text')), currentTitle);
 
     // If the title is different to what it was before, then save it. After the
     // save has completed, update the post stream as there will be a new post
     // indicating that the discussion was renamed.
     if (title && title !== currentTitle) {
-      this.save({title}).then(() => {
+      return this.save({title}).then(() => {
         if (app.viewingDiscussion(this)) {
           app.current.stream.update();
         }

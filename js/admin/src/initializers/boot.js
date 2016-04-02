@@ -31,6 +31,7 @@ export default function boot(app) {
   app.alerts = m.mount(document.getElementById('alerts'), AlertManager.component());
   app.history = {
     canGoBack: () => true,
+    getPrevious: () => {},
     backUrl: () => app.forum.attribute('baseUrl'),
     back: function() {
       window.location = this.backUrl();
@@ -54,4 +55,12 @@ export default function boot(app) {
   }).start();
 
   app.booted = true;
+
+  // If an extension has just been enabled, then we will run its settings
+  // callback.
+  const enabled = localStorage.getItem('enabledExtension');
+  if (enabled && app.extensionSettings[enabled]) {
+    app.extensionSettings[enabled]();
+    localStorage.removeItem('enabledExtension');
+  }
 }

@@ -15,13 +15,11 @@ import Button from 'flarum/components/Button';
  * - `disabled`
  */
 export default class TextEditor extends Component {
-  constructor(...args) {
-    super(...args);
-
+  init() {
     /**
      * The value of the textarea.
      *
-     * @type {[type]}
+     * @type {String}
      */
     this.value = m.prop(this.props.value || '');
   }
@@ -29,14 +27,14 @@ export default class TextEditor extends Component {
   view() {
     return (
       <div className="TextEditor">
-        <textarea className="FormControl TextEditor-flexible"
+        <textarea className="FormControl Composer-flexible"
           config={this.configTextarea.bind(this)}
           oninput={m.withAttr('value', this.oninput.bind(this))}
           placeholder={this.props.placeholder || ''}
           disabled={!!this.props.disabled}
           value={this.value()}/>
 
-        <ul className="TextEditor-controls">
+        <ul className="TextEditor-controls Composer-footer">
           {listItems(this.controlItems().toArray())}
         </ul>
       </div>
@@ -52,7 +50,7 @@ export default class TextEditor extends Component {
   configTextarea(element, isInitialized) {
     if (isInitialized) return;
 
-    var handler = () => {
+    const handler = () => {
       this.onsubmit();
       m.redraw();
     };
@@ -74,6 +72,7 @@ export default class TextEditor extends Component {
         children: this.props.submitLabel,
         icon: 'check',
         className: 'Button Button--primary',
+        itemClassName: 'App-primaryControl',
         onclick: this.onsubmit.bind(this)
       })
     );

@@ -1,11 +1,11 @@
-import Component from 'flarum/Component';
+import Page from 'flarum/components/Page';
 import GroupBadge from 'flarum/components/GroupBadge';
 import EditGroupModal from 'flarum/components/EditGroupModal';
 import Group from 'flarum/models/Group';
 import icon from 'flarum/helpers/icon';
 import PermissionGrid from 'flarum/components/PermissionGrid';
 
-export default class PermissionsPage extends Component {
+export default class PermissionsPage extends Page {
   view() {
     return (
       <div className="PermissionsPage">
@@ -25,7 +25,7 @@ export default class PermissionsPage extends Component {
               ))}
             <button className="Button Group Group--add" onclick={() => app.modal.show(new EditGroupModal())}>
               {icon('plus', {className: 'Group-icon'})}
-              <span className="Group-name">New Group</span>
+              <span className="Group-name">{app.translator.trans('core.admin.permissions.new_group_button')}</span>
             </button>
           </div>
         </div>

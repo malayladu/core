@@ -8,8 +8,8 @@ import CommentPost from 'flarum/components/CommentPost';
  * profile.
  */
 export default class PostsUserPage extends UserPage {
-  constructor(...args) {
-    super(...args);
+  init() {
+    super.init();
 
     /**
      * Whether or not the activity feed is currently loading.
@@ -51,7 +51,7 @@ export default class PostsUserPage extends UserPage {
       footer = (
         <div className="PostsUserPage-loadMore">
           {Button.component({
-            children: app.trans('core.load_more'),
+            children: app.translator.trans('core.forum.user.posts_load_more_button'),
             className: 'Button',
             onclick: this.loadMore.bind(this)
           })}
@@ -65,9 +65,9 @@ export default class PostsUserPage extends UserPage {
           {this.posts.map(post => (
             <li>
               <div className="PostsUserPage-discussion">
-                In <a href={app.route.post(post)} config={m.route}>{post.discussion().title()}</a>
+                {app.translator.trans('core.forum.user.in_discussion_text', {discussion: <a href={app.route.post(post)} config={m.route}>{post.discussion().title()}</a>})}
               </div>
-              {CommentPost.component({post, showDiscussionTitle: true})}
+              {CommentPost.component({post})}
             </li>
           ))}
         </ul>

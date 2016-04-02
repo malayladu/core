@@ -16,8 +16,8 @@ import listItems from 'flarum/helpers/listItems';
  * @abstract
  */
 export default class UserPage extends Page {
-  constructor(...args) {
-    super(...args);
+  init() {
+    super.init();
 
     /**
      * The user this page is for.
@@ -74,6 +74,7 @@ export default class UserPage extends Page {
   show(user) {
     this.user = user;
 
+    app.history.push('user', user.username());
     app.setTitle(user.username());
 
     m.redraw();
@@ -131,27 +132,30 @@ export default class UserPage extends Page {
     items.add('posts',
       LinkButton.component({
         href: app.route('user.posts', {username: user.username()}),
-        children: [app.trans('core.posts'), <span className="Button-badge">{user.commentsCount()}</span>],
+        children: [app.translator.trans('core.forum.user.posts_link'), <span className="Button-badge">{user.commentsCount()}</span>],
         icon: 'comment-o'
-      })
+      }),
+      100
     );
 
     items.add('discussions',
       LinkButton.component({
         href: app.route('user.discussions', {username: user.username()}),
-        children: [app.trans('core.discussions'), <span className="Button-badge">{user.discussionsCount()}</span>],
+        children: [app.translator.trans('core.forum.user.discussions_link'), <span className="Button-badge">{user.discussionsCount()}</span>],
         icon: 'reorder'
-      })
+      }),
+      90
     );
 
     if (app.session.user === user) {
-      items.add('separator', Separator.component());
+      items.add('separator', Separator.component(), -90);
       items.add('settings',
         LinkButton.component({
           href: app.route('settings'),
-          children: app.trans('core.settings'),
+          children: app.translator.trans('core.forum.user.settings_link'),
           icon: 'cog'
-        })
+        }),
+        -100
       );
     }
 

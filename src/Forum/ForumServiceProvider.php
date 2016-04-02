@@ -10,134 +10,165 @@
 
 namespace Flarum\Forum;
 
-use Flarum\Core\Users\Guest;
-use Flarum\Events\RegisterForumRoutes;
+use Flarum\Event\ConfigureForumRoutes;
+use Flarum\Event\ExtensionWasDisabled;
+use Flarum\Event\ExtensionWasEnabled;
+use Flarum\Event\SettingWasSet;
+use Flarum\Foundation\AbstractServiceProvider;
+use Flarum\Http\GenerateRouteHandlerTrait;
 use Flarum\Http\RouteCollection;
-use Flarum\Http\UrlGenerator;
-use Flarum\Support\ServiceProvider;
-use Psr\Http\Message\ServerRequestInterface;
 
-class ForumServiceProvider extends ServiceProvider
+class ForumServiceProvider extends AbstractServiceProvider
 {
+    use GenerateRouteHandlerTrait;
+
     /**
-     * Register the service provider.
-     *
-     * @return void
+     * {@inheritdoc}
      */
     public function register()
     {
-        $this->app->bind('flarum.actor', function () {
-            return new Guest;
+        $this->app->singleton(UrlGenerator::class, function () {
+            return new UrlGenerator($this->app, $this->app->make('flarum.forum.routes'));
         });
 
-        $this->app->singleton(
-            'Flarum\Http\UrlGeneratorInterface',
-            function () {
-                return new UrlGenerator($this->app->make('flarum.forum.routes'));
-            }
-        );
+        $this->app->singleton('flarum.forum.routes', function () {
+            return new RouteCollection;
+        });
     }
 
     /**
-     * Bootstrap the application events.
-     *
-     * @return void
+     * {@inheritdoc}
      */
     public function boot()
     {
-        $root = __DIR__.'/../..';
+        $this->populateRoutes($this->app->make('flarum.forum.routes'));
 
-        $this->loadViewsFrom($root.'/views', 'flarum.forum');
+        $this->loadViewsFrom(__DIR__.'/../../views', 'flarum.forum');
 
-        $this->publishes([
-            $root.'/public/fonts' => public_path('assets/fonts')
-        ]);
+        $this->flushAssetsWhenThemeChanged();
 
-        $this->routes();
+        $this->flushAssetsWhenExtensionsChanged();
     }
 
-    protected function routes()
+    /**
+     * Populate the forum client routes.
+     *
+     * @param RouteCollection $routes
+     */
+    protected function populateRoutes(RouteCollection $routes)
     {
-        $this->app->instance('flarum.forum.routes', $routes = new RouteCollection);
+        $toController = $this->getHandlerGenerator($this->app);
 
         $routes->get(
             '/all',
-            'flarum.forum.index',
-            $this->action('Flarum\Forum\Actions\IndexAction')
+            'index',
+            $toDefaultController = $toController('Flarum\Forum\Controller\IndexController')
         );
 
         $routes->get(
             '/d/{id:\d+(?:-[^/]*)?}[/{near:[^/]*}]',
-            'flarum.forum.discussion',
-            $this->action('Flarum\Forum\Actions\DiscussionAction')
+            'discussion',
+            $toController('Flarum\Forum\Controller\DiscussionController')
         );
 
         $routes->get(
             '/u/{username}[/{filter:[^/]*}]',
-            'flarum.forum.user',
-            $this->action('Flarum\Forum\Actions\ClientAction')
+            'user',
+            $toController('Flarum\Forum\Controller\ClientController')
         );
 
         $routes->get(
             '/settings',
-            'flarum.forum.settings',
-            $this->action('Flarum\Forum\Actions\ClientAction')
+            'settings',
+            $toController('Flarum\Forum\Controller\AuthorizedClientController')
         );
 
         $routes->get(
             '/notifications',
-            'flarum.forum.notifications',
-            $this->action('Flarum\Forum\Actions\ClientAction')
+            'notifications',
+            $toController('Flarum\Forum\Controller\AuthorizedClientController')
         );
 
         $routes->get(
             '/logout',
-            'flarum.forum.logout',
-            $this->action('Flarum\Forum\Actions\LogoutAction')
+            'logout',
+            $toController('Flarum\Forum\Controller\LogOutController')
         );
 
         $routes->post(
             '/login',
-            'flarum.forum.login',
-            $this->action('Flarum\Forum\Actions\LoginAction')
+            'login',
+            $toController('Flarum\Forum\Controller\LogInController')
+        );
+
+        $routes->post(
+            '/register',
+            'register',
+            $toController('Flarum\Forum\Controller\RegisterController')
         );
 
         $routes->get(
             '/confirm/{token}',
-            'flarum.forum.confirmEmail',
-            $this->action('Flarum\Forum\Actions\ConfirmEmailAction')
+            'confirmEmail',
+            $toController('Flarum\Forum\Controller\ConfirmEmailController')
         );
 
         $routes->get(
             '/reset/{token}',
-            'flarum.forum.resetPassword',
-            $this->action('Flarum\Forum\Actions\ResetPasswordAction')
+            'resetPassword',
+            $toController('Flarum\Forum\Controller\ResetPasswordController')
         );
 
         $routes->post(
             '/reset',
-            'flarum.forum.savePassword',
-            $this->action('Flarum\Forum\Actions\SavePasswordAction')
+            'savePassword',
+            $toController('Flarum\Forum\Controller\SavePasswordController')
         );
 
-        event(new RegisterForumRoutes($routes));
+        $this->app->make('events')->fire(
+            new ConfigureForumRoutes($routes, $toController)
+        );
 
-        $settings = $this->app->make('Flarum\Core\Settings\SettingsRepository');
+        $defaultRoute = $this->app->make('flarum.settings')->get('default_route');
+
+        if (isset($routes->getRouteData()[0]['GET'][$defaultRoute])) {
+            $toDefaultController = $routes->getRouteData()[0]['GET'][$defaultRoute];
+        }
 
         $routes->get(
             '/',
-            'flarum.forum.default',
-            $routes->getRouteData()[0]['GET'][$settings->get('default_route')]
+            'default',
+            $toDefaultController
         );
     }
 
-    protected function action($class)
+    protected function flushAssetsWhenThemeChanged()
     {
-        return function (ServerRequestInterface $httpRequest, $routeParams) use ($class) {
-            /** @var \Flarum\Support\Action $action */
-            $action = $this->app->make($class);
+        $this->app->make('events')->listen(SettingWasSet::class, function (SettingWasSet $event) {
+            if (preg_match('/^theme_|^custom_less$/i', $event->key)) {
+                $this->getClientController()->flushCss();
+            }
+        });
+    }
 
-            return $action->handle($httpRequest, $routeParams);
-        };
+    protected function flushAssetsWhenExtensionsChanged()
+    {
+        $events = $this->app->make('events');
+
+        $events->listen(ExtensionWasEnabled::class, [$this, 'flushAssets']);
+        $events->listen(ExtensionWasDisabled::class, [$this, 'flushAssets']);
+    }
+
+    public function flushAssets()
+    {
+        $this->getClientController()->flushAssets();
+    }
+
+    /**
+     * @return \Flarum\Forum\Controller\ClientController
+     */
+    protected function getClientController()
+    {
+        return $this->app->make('Flarum\Forum\Controller\ClientController');
     }
 }

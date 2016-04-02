@@ -1,12 +1,13 @@
 import Model from 'flarum/Model';
-import mixin from 'flarum/utils/mixin';
 import computed from 'flarum/utils/computed';
 import ItemList from 'flarum/utils/ItemList';
-import { slug } from 'flarum/utils/string';
+import Badge from 'flarum/components/Badge';
 
-export default class Discussion extends mixin(Model, {
+export default class Discussion extends Model {}
+
+Object.assign(Discussion.prototype, {
   title: Model.attribute('title'),
-  slug: computed('title', slug),
+  slug: Model.attribute('slug'),
 
   startTime: Model.attribute('startTime', Model.transformDate),
   startUser: Model.hasOne('startUser'),
@@ -27,10 +28,15 @@ export default class Discussion extends mixin(Model, {
   isUnread: computed('unreadCount', unreadCount => !!unreadCount),
   isRead: computed('unreadCount', unreadCount => app.session.user && !unreadCount),
 
+  hideTime: Model.attribute('hideTime', Model.transformDate),
+  hideUser: Model.hasOne('hideUser'),
+  isHidden: computed('hideTime', 'commentsCount', (hideTime, commentsCount) => !!hideTime || commentsCount === 0),
+
   canReply: Model.attribute('canReply'),
   canRename: Model.attribute('canRename'),
-  canDelete: Model.attribute('canDelete')
-}) {
+  canHide: Model.attribute('canHide'),
+  canDelete: Model.attribute('canDelete'),
+
   /**
    * Remove a post from the discussion's posts relationship.
    *
@@ -49,7 +55,7 @@ export default class Discussion extends mixin(Model, {
         }
       });
     }
-  }
+  },
 
   /**
    * Get the estimated number of unread posts in this discussion for the current
@@ -66,7 +72,7 @@ export default class Discussion extends mixin(Model, {
     }
 
     return 0;
-  }
+  },
 
   /**
    * Get the Badge components that apply to this discussion.
@@ -75,8 +81,14 @@ export default class Discussion extends mixin(Model, {
    * @public
    */
   badges() {
-    return new ItemList();
-  }
+    const items = new ItemList();
+
+    if (this.isHidden()) {
+      items.add('hidden', <Badge type="hidden" icon="trash" label={app.translator.trans('core.lib.badge.hidden_tooltip')}/>);
+    }
+
+    return items;
+  },
 
   /**
    * Get a list of all of the post IDs in this discussion.
@@ -85,6 +97,10 @@ export default class Discussion extends mixin(Model, {
    * @public
    */
   postIds() {
-    return this.data.relationships.posts.data.map(link => link.id);
+    const posts = this.data.relationships.posts;
+
+    return posts ? posts.data.map(link => link.id) : [];
   }
-}
+});
+
+export default Discussion;

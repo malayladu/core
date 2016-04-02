@@ -13,11 +13,11 @@ import listItems from 'flarum/helpers/listItems';
  * the context of their user profile.
  */
 export default class SettingsPage extends UserPage {
-  constructor(...args) {
-    super(...args);
+  init() {
+    super.init();
 
     this.show(app.session.user);
-    app.setTitle(app.trans('core.settings'));
+    app.setTitle(app.translator.trans('core.forum.settings.title'));
   }
 
   content() {
@@ -38,7 +38,7 @@ export default class SettingsPage extends UserPage {
 
     items.add('account',
       FieldSet.component({
-        label: app.trans('core.account'),
+        label: app.translator.trans('core.forum.settings.account_heading'),
         className: 'Settings-account',
         children: this.accountItems().toArray()
       })
@@ -46,15 +46,15 @@ export default class SettingsPage extends UserPage {
 
     items.add('notifications',
       FieldSet.component({
-        label: app.trans('core.notifications'),
+        label: app.translator.trans('core.forum.settings.notifications_heading'),
         className: 'Settings-notifications',
-        children: [NotificationGrid.component({user: this.user})]
+        children: this.notificationsItems().toArray()
       })
     );
 
     items.add('privacy',
       FieldSet.component({
-        label: app.trans('core.privacy'),
+        label: app.translator.trans('core.forum.settings.privacy_heading'),
         className: 'Settings-privacy',
         children: this.privacyItems().toArray()
       })
@@ -73,7 +73,7 @@ export default class SettingsPage extends UserPage {
 
     items.add('changePassword',
       Button.component({
-        children: app.trans('core.change_password'),
+        children: app.translator.trans('core.forum.settings.change_password_button'),
         className: 'Button',
         onclick: () => app.modal.show(new ChangePasswordModal())
       })
@@ -81,11 +81,24 @@ export default class SettingsPage extends UserPage {
 
     items.add('changeEmail',
       Button.component({
-        children: app.trans('core.change_email'),
+        children: app.translator.trans('core.forum.settings.change_email_button'),
         className: 'Button',
         onclick: () => app.modal.show(new ChangeEmailModal())
       })
     );
+
+    return items;
+  }
+
+  /**
+   * Build an item list for the user's notification settings.
+   *
+   * @return {ItemList}
+   */
+  notificationsItems() {
+    const items = new ItemList();
+
+    items.add('notificationGrid', NotificationGrid.component({user: this.user}));
 
     return items;
   }
@@ -118,7 +131,7 @@ export default class SettingsPage extends UserPage {
 
     items.add('discloseOnline',
       Switch.component({
-        children: app.trans('core.disclose_online'),
+        children: app.translator.trans('core.forum.settings.privacy_disclose_online_label'),
         state: this.user.preferences().discloseOnline,
         onchange: (value, component) => {
           this.user.pushAttributes({lastSeenTime: null});

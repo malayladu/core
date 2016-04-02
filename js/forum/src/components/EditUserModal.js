@@ -2,13 +2,14 @@ import Modal from 'flarum/components/Modal';
 import Button from 'flarum/components/Button';
 import GroupBadge from 'flarum/components/GroupBadge';
 import Group from 'flarum/models/Group';
+import extractText from 'flarum/utils/extractText';
 
 /**
  * The `EditUserModal` component displays a modal dialog with a login form.
  */
 export default class EditUserModal extends Modal {
-  constructor(...args) {
-    super(...args);
+  init() {
+    super.init();
 
     const user = this.props.user;
 
@@ -37,7 +38,7 @@ export default class EditUserModal extends Modal {
         <div className="Form">
           <div className="Form-group">
             <label>Username</label>
-            <input className="FormControl" placeholder={app.trans('core.username')}
+            <input className="FormControl" placeholder={extractText(app.translator.trans('core.forum.edit_user.username_label'))}
               value={this.username()}
               onchange={m.withAttr('value', this.username)} />
           </div>
@@ -45,7 +46,7 @@ export default class EditUserModal extends Modal {
           <div className="Form-group">
             <label>Email</label>
             <div>
-              <input className="FormControl" placeholder={app.trans('core.email')}
+              <input className="FormControl" placeholder={extractText(app.translator.trans('core.forum.edit_user.email_label'))}
                 value={this.email()}
                 onchange={m.withAttr('value', this.email)} />
             </div>
@@ -64,7 +65,7 @@ export default class EditUserModal extends Modal {
                 Set new password
               </label>
               {this.setPassword() ? (
-                <input className="FormControl" type="password" name="password" placeholder={app.trans('core.password')}
+                <input className="FormControl" type="password" name="password" placeholder={extractText(app.translator.trans('core.forum.edit_user.password_label'))}
                   value={this.password()}
                   onchange={m.withAttr('value', this.password)} />
               ) : ''}
@@ -93,7 +94,7 @@ export default class EditUserModal extends Modal {
               className: 'Button Button--primary',
               type: 'submit',
               loading: this.loading,
-              children: app.trans('core.save_changes')
+              children: app.translator.trans('core.forum.edit_user.submit_button')
             })}
           </div>
         </div>
@@ -101,11 +102,7 @@ export default class EditUserModal extends Modal {
     );
   }
 
-  onsubmit(e) {
-    e.preventDefault();
-
-    this.loading = true;
-
+  data() {
     const groups = Object.keys(this.groups)
       .filter(id => this.groups[id]())
       .map(id => app.store.getById('groups', id));
@@ -120,12 +117,19 @@ export default class EditUserModal extends Modal {
       data.password = this.password();
     }
 
-    this.props.user.save(data).then(
-      () => this.hide(),
-      response => {
+    return data;
+  }
+
+  onsubmit(e) {
+    e.preventDefault();
+
+    this.loading = true;
+
+    this.props.user.save(this.data(), {errorHandler: this.onerror.bind(this)})
+      .then(this.hide.bind(this))
+      .catch(() => {
         this.loading = false;
-        this.handleErrors(response);
-      }
-    );
+        m.redraw();
+      });
   }
 }

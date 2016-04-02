@@ -1,9 +1,10 @@
 import Model from 'flarum/Model';
-import mixin from 'flarum/utils/mixin';
 import computed from 'flarum/utils/computed';
 import { getPlainContent } from 'flarum/utils/string';
 
-export default class Post extends mixin(Model, {
+export default class Post extends Model {}
+
+Object.assign(Post.prototype, {
   number: Model.attribute('number'),
   discussion: Model.hasOne('discussion'),
 
@@ -24,4 +25,6 @@ export default class Post extends mixin(Model, {
 
   canEdit: Model.attribute('canEdit'),
   canDelete: Model.attribute('canDelete')
-}) {}
+});
+
+export default Post;

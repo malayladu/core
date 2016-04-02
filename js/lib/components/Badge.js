@@ -11,6 +11,7 @@ import extract from 'flarum/utils/extract';
  * - `type` The type of badge this is. This will be used to give the badge a
  *   class name of `Badge--{type}`.
  * - `icon` The name of an icon to show inside the badge.
+ * - `label`
  *
  * All other props will be assigned as attributes on the badge element.
  */
@@ -22,11 +23,6 @@ export default class Badge extends Component {
 
     attrs.className = 'Badge ' + (type ? 'Badge--' + type : '') + ' ' + (attrs.className || '');
     attrs.title = extract(attrs, 'label') || '';
-
-    // Give the badge a unique key so that when badges are displayed together,
-    // and then one is added/removed, Mithril will correctly redraw the series
-    // of badges.
-    attrs.key = attrs.type;
 
     return (
       <span {...attrs}>

@@ -3,7 +3,7 @@
  * to the current authenticated user, and provides methods to log in/out.
  */
 export default class Session {
-  constructor(token, user) {
+  constructor(user, csrfToken) {
     /**
      * The current authenticated user.
      *
@@ -13,11 +13,12 @@ export default class Session {
     this.user = user;
 
     /**
-     * The token that was used for authentication.
+     * The CSRF token.
      *
      * @type {String|null}
+     * @public
      */
-    this.token = token;
+    this.csrfToken = csrfToken;
   }
 
   /**
@@ -25,31 +26,24 @@ export default class Session {
    *
    * @param {String} identification The username/email.
    * @param {String} password
+   * @param {Object} [options]
    * @return {Promise}
+   * @public
    */
-  login(identification, password) {
-    return app.request({
+  login(identification, password, options = {}) {
+    return app.request(Object.assign({
       method: 'POST',
       url: app.forum.attribute('baseUrl') + '/login',
       data: {identification, password}
-    })
-      .then(() => window.location.reload());
+    }, options));
   }
 
   /**
    * Log the user out.
+   *
+   * @public
    */
   logout() {
-    window.location = app.forum.attribute('baseUrl') + '/logout?token=' + this.token;
-  }
-
-  /**
-   * Apply an authorization header with the current token to the given
-   * XMLHttpRequest object.
-   *
-   * @param {XMLHttpRequest} xhr
-   */
-  authorize(xhr) {
-    xhr.setRequestHeader('Authorization', 'Token ' + this.token);
+    window.location = app.forum.attribute('baseUrl') + '/logout?token=' + this.csrfToken;
   }
 }

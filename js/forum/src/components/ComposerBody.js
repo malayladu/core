@@ -22,9 +22,7 @@ import ItemList from 'flarum/utils/ItemList';
  * @abstract
  */
 export default class ComposerBody extends Component {
-  constructor(props) {
-    super(props);
-
+  init() {
     /**
      * Whether or not the component is loading.
      *
@@ -58,7 +56,7 @@ export default class ComposerBody extends Component {
     this.editor.props.disabled = this.loading;
 
     return (
-      <div className="ComposerBody">
+      <div className={'ComposerBody ' + (this.props.className || '')}>
         {avatar(this.props.user, {className: 'ComposerBody-avatar'})}
         <div className="ComposerBody-content">
           <ul className="ComposerBody-header">{listItems(this.headerItems().toArray())}</ul>
@@ -103,5 +101,13 @@ export default class ComposerBody extends Component {
    * @abstract
    */
   onsubmit() {
+  }
+
+  /**
+   * Stop loading.
+   */
+  loaded() {
+    this.loading = false;
+    m.redraw();
   }
 }

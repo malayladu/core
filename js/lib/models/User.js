@@ -1,13 +1,14 @@
 /*global ColorThief*/
 
 import Model from 'flarum/Model';
-import mixin from 'flarum/utils/mixin';
 import stringToColor from 'flarum/utils/stringToColor';
 import ItemList from 'flarum/utils/ItemList';
 import computed from 'flarum/utils/computed';
 import GroupBadge from 'flarum/components/GroupBadge';
 
-export default class User extends mixin(Model, {
+export default class User extends Model {}
+
+Object.assign(User.prototype, {
   username: Model.attribute('username'),
   email: Model.attribute('email'),
   isActivated: Model.attribute('isActivated'),
@@ -15,7 +16,7 @@ export default class User extends mixin(Model, {
 
   avatarUrl: Model.attribute('avatarUrl'),
   bio: Model.attribute('bio'),
-  bioHtml: computed('bio', bio => bio ? '<p>' + $('<div/>').text(bio).html().replace(/\n/g, '<br>').autoLink() + '</p>' : ''),
+  bioHtml: computed('bio', bio => bio ? '<p>' + $('<div/>').text(bio).html().replace(/\n/g, '<br>').autoLink({rel: 'nofollow'}) + '</p>' : ''),
   preferences: Model.attribute('preferences'),
   groups: Model.hasMany('groups'),
 
@@ -23,6 +24,7 @@ export default class User extends mixin(Model, {
   lastSeenTime: Model.attribute('lastSeenTime', Model.transformDate),
   readTime: Model.attribute('readTime', Model.transformDate),
   unreadNotificationsCount: Model.attribute('unreadNotificationsCount'),
+  newNotificationsCount: Model.attribute('newNotificationsCount'),
 
   discussionsCount: Model.attribute('discussionsCount'),
   commentsCount: Model.attribute('commentsCount'),
@@ -44,8 +46,8 @@ export default class User extends mixin(Model, {
     }
 
     return '#' + stringToColor(username);
-  })
-}) {
+  }),
+
   /**
    * Check whether or not the user has been seen in the last 5 minutes.
    *
@@ -54,7 +56,7 @@ export default class User extends mixin(Model, {
    */
   isOnline() {
     return this.lastSeenTime() > moment().subtract(5, 'minutes').toDate();
-  }
+  },
 
   /**
    * Get the Badge components that apply to this user.
@@ -67,14 +69,12 @@ export default class User extends mixin(Model, {
 
     if (groups) {
       groups.forEach(group => {
-        const name = group.nameSingular();
-
         items.add('group' + group.id(), GroupBadge.component({group}));
       });
     }
 
     return items;
-  }
+  },
 
   /**
    * Calculate the dominant color of the user's avatar. The dominant color will
@@ -93,7 +93,7 @@ export default class User extends mixin(Model, {
       m.redraw();
     };
     image.src = this.avatarUrl();
-  }
+  },
 
   /**
    * Update the user's preferences.
@@ -108,4 +108,6 @@ export default class User extends mixin(Model, {
 
     return this.save({preferences});
   }
-}
+});
+
+export default User;

@@ -40,7 +40,7 @@ export default {
    * @return {ItemList}
    * @protected
    */
-  userControls() {
+  userControls(post, context) {
     return new ItemList();
   },
 
@@ -53,20 +53,14 @@ export default {
    * @return {ItemList}
    * @protected
    */
-  moderationControls(post) {
+  moderationControls(post, context) {
     const items = new ItemList();
 
     if (post.contentType() === 'comment' && post.canEdit()) {
-      if (post.isHidden()) {
-        items.add('restore', Button.component({
-          icon: 'reply',
-          children: app.trans('core.restore'),
-          onclick: this.restoreAction.bind(post)
-        }));
-      } else {
+      if (!post.isHidden()) {
         items.add('edit', Button.component({
           icon: 'pencil',
-          children: app.trans('core.edit'),
+          children: app.translator.trans('core.forum.post_controls.edit_button'),
           onclick: this.editAction.bind(post)
         }));
       }
@@ -84,21 +78,32 @@ export default {
    * @return {ItemList}
    * @protected
    */
-  destructiveControls(post) {
+  destructiveControls(post, context) {
     const items = new ItemList();
 
-    if (post.contentType() === 'comment' && !post.isHidden() && post.canEdit()) {
-      items.add('hide', Button.component({
-        icon: 'times',
-        children: app.trans('core.delete'),
-        onclick: this.hideAction.bind(post)
-      }));
-    } else if (post.number() !== 1 && (post.contentType() !== 'comment' || post.isHidden()) && post.canDelete()) {
-      items.add('delete', Button.component({
-        icon: 'times',
-        children: app.trans('core.delete_forever'),
-        onclick: this.deleteAction.bind(post)
-      }));
+    if (post.contentType() === 'comment' && !post.isHidden()) {
+      if (post.canEdit()) {
+        items.add('hide', Button.component({
+          icon: 'trash-o',
+          children: app.translator.trans('core.forum.post_controls.delete_button'),
+          onclick: this.hideAction.bind(post)
+        }));
+      }
+    } else {
+      if (post.contentType() === 'comment' && post.canEdit()) {
+        items.add('restore', Button.component({
+          icon: 'reply',
+          children: app.translator.trans('core.forum.post_controls.restore_button'),
+          onclick: this.restoreAction.bind(post)
+        }));
+      }
+      if (post.canDelete()) {
+        items.add('delete', Button.component({
+          icon: 'times',
+          children: app.translator.trans('core.forum.post_controls.delete_forever_button'),
+          onclick: this.deleteAction.bind(post, context)
+        }));
+      }
     }
 
     return items;
@@ -114,25 +119,57 @@ export default {
 
   /**
    * Hide a post.
+   *
+   * @return {Promise}
    */
   hideAction() {
-    this.save({ isHidden: true });
     this.pushAttributes({ hideTime: new Date(), hideUser: app.session.user });
+
+    return this.save({ isHidden: true }).then(() => m.redraw());
   },
 
   /**
    * Restore a post.
+   *
+   * @return {Promise}
    */
   restoreAction() {
-    this.save({ isHidden: false });
     this.pushAttributes({ hideTime: null, hideUser: null });
+
+    return this.save({ isHidden: false }).then(() => m.redraw());
   },
 
   /**
    * Delete a post.
+   *
+   * @return {Promise}
    */
-  deleteAction() {
-    this.delete();
-    this.discussion().removePost(this.id());
+  deleteAction(context) {
+    if (context) context.loading = true;
+
+    return this.delete()
+      .then(() => {
+        const discussion = this.discussion();
+
+        discussion.removePost(this.id());
+
+        // If this was the last post in the discussion, then we will assume that
+        // the whole discussion was deleted too.
+        if (!discussion.postIds().length) {
+          // If there is a discussion list in the cache, remove this discussion.
+          if (app.cache.discussionList) {
+            app.cache.discussionList.removeDiscussion(discussion);
+          }
+
+          if (app.viewingDiscussion(discussion)) {
+            app.history.back();
+          }
+        }
+      })
+      .catch(() => {})
+      .then(() => {
+        if (context) context.loading = false;
+        m.redraw();
+      });
   }
 };

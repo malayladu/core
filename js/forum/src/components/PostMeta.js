@@ -15,7 +15,7 @@ export default class PostMeta extends Component {
   view() {
     const post = this.props.post;
     const time = post.time();
-    const permalink = window.location.origin + app.route.post(post);
+    const permalink = this.getPermalink(post);
     const touch = 'ontouchstart' in document.documentElement;
 
     // When the dropdown menu is shown, select the contents of the permalink
@@ -33,7 +33,7 @@ export default class PostMeta extends Component {
         </a>
 
         <div className="Dropdown-menu dropdown-menu">
-          <span className="PostMeta-number">{app.trans('core.post_number', {number: post.number()})}</span>{' '}
+          <span className="PostMeta-number">{app.translator.trans('core.forum.post.number_tooltip', {number: post.number()})}</span>{' '}
           {fullTime(time)}
           {touch
             ? <a className="Button PostMeta-permalink" href={permalink}>{permalink}</a>
@@ -41,5 +41,15 @@ export default class PostMeta extends Component {
         </div>
       </div>
     );
+  }
+
+  /**
+   * Get the permalink for the given post.
+   *
+   * @param {Post} post
+   * @returns {String}
+   */
+  getPermalink(post) {
+    return window.location.origin + app.route.post(post);
   }
 }

@@ -10,8 +10,12 @@
 
 namespace Flarum\Api;
 
-use Flarum\Core\Users\User;
+use Exception;
+use Flarum\Core\User;
+use Flarum\Http\Controller\ControllerInterface;
 use Illuminate\Contracts\Container\Container;
+use InvalidArgumentException;
+use Zend\Diactoros\ServerRequestFactory;
 
 class Client
 {
@@ -21,28 +25,49 @@ class Client
     protected $container;
 
     /**
-     * @param Container $container
+     * @var ErrorHandler
      */
-    public function __construct(Container $container)
+    protected $errorHandler;
+
+    /**
+     * @param Container $container
+     * @param ErrorHandler $errorHandler
+     */
+    public function __construct(Container $container, ErrorHandler $errorHandler)
     {
         $this->container = $container;
+        $this->errorHandler = $errorHandler;
     }
 
     /**
      * Execute the given API action class, pass the input and return its response.
      *
-     * @param User $actor
-     * @param string $actionClass
-     * @param array $input
-     * @return object
+     * @param string|ControllerInterface $controller
+     * @param User|null $actor
+     * @param array $queryParams
+     * @param array $body
+     * @return \Psr\Http\Message\ResponseInterface
      */
-    public function send(User $actor, $actionClass, array $input = [])
+    public function send($controller, $actor, array $queryParams = [], array $body = [])
     {
-        /** @var \Flarum\Api\Actions\Action $action */
-        $action = $this->container->make($actionClass);
+        $request = ServerRequestFactory::fromGlobals(null, $queryParams, $body);
 
-        $response = $action->handle(new Request($input, $actor));
+        $request = $request->withAttribute('actor', $actor);
 
-        return new Response($response);
+        if (is_string($controller)) {
+            $controller = $this->container->make($controller);
+        }
+
+        if (! ($controller instanceof ControllerInterface)) {
+            throw new InvalidArgumentException(
+                'Endpoint must be an instance of '.ControllerInterface::class
+            );
+        }
+
+        try {
+            return $controller->handle($request);
+        } catch (Exception $e) {
+            return $this->errorHandler->handle($e);
+        }
     }
 }

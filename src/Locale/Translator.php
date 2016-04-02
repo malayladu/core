@@ -10,61 +10,68 @@
 
 namespace Flarum\Locale;
 
-use Symfony\Component\Translation\TranslatorInterface;
-use Closure;
+use Symfony\Component\Translation\MessageCatalogueInterface;
+use Symfony\Component\Translation\Translator as BaseTranslator;
 
-class Translator implements TranslatorInterface
+class Translator extends BaseTranslator
 {
-    protected $translations;
+    const REFERENCE_REGEX = '/^=>\s*([a-z0-9_\-\.]+)$/i';
 
-    protected $plural;
-
-    public function __construct(array $translations, Closure $plural)
+    /**
+     * {@inheritdoc}
+     */
+    public function getCatalogue($locale = null)
     {
-        $this->translations = $translations;
-        $this->plural = $plural;
-    }
-
-    protected function plural($count)
-    {
-        $plural = $this->plural;
-
-        return $plural($count);
-    }
-
-    public function getLocale()
-    {
-        //
-    }
-
-    public function setLocale($locale)
-    {
-        //
-    }
-
-    public function trans($id, array $parameters = [], $domain = null, $locale = null)
-    {
-        $translation = array_get($this->translations, $id);
-
-        if (is_array($translation) && isset($parameters['count'])) {
-            $translation = $translation[$this->plural($parameters['count'])];
+        if (null === $locale) {
+            $locale = $this->getLocale();
+        } else {
+            $this->assertValidLocale($locale);
         }
 
-        if (is_string($translation)) {
-            foreach ($parameters as $k => $v) {
-                $translation = str_replace('{'.$k.'}', $v, $translation);
+        $parse = ! isset($this->catalogues[$locale]);
+
+        $catalogue = parent::getCatalogue($locale);
+
+        if ($parse) {
+            $this->parseCatalogue($catalogue);
+
+            $fallbackCatalogue = $catalogue;
+            while ($fallbackCatalogue = $fallbackCatalogue->getFallbackCatalogue()) {
+                $this->parseCatalogue($fallbackCatalogue);
             }
-
-            return $translation;
         }
 
-        return $id;
+        return $catalogue;
     }
 
-    public function transChoice($id, $number, array $parameters = [], $domain = null, $locale = null)
+    /**
+     * @param MessageCatalogueInterface $catalogue
+     */
+    private function parseCatalogue(MessageCatalogueInterface $catalogue)
     {
-        $parameters['count'] = $number;
+        foreach ($catalogue->all() as $domain => $messages) {
+            foreach ($messages as $id => $translation) {
+                if (preg_match(self::REFERENCE_REGEX, $translation, $matches)) {
+                    $catalogue->set($id, $this->getTranslation($catalogue, $id, $domain), $domain);
+                }
+            }
+        }
+    }
 
-        return $this->trans($id, $parameters, $domain, $locale);
+    /**
+     * @param MessageCatalogueInterface $catalogue
+     * @param string $id
+     * @param string $domain
+     * @return string
+     */
+    private function getTranslation(MessageCatalogueInterface $catalogue, $id, $domain)
+    {
+        $translation = $catalogue->get($id, $domain);
+
+        if (preg_match(self::REFERENCE_REGEX, $translation, $matches)) {
+            return $this->getTranslation($catalogue, $matches[1], $domain);
+        }
+
+        return $translation;
     }
 }

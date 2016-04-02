@@ -13,6 +13,7 @@ import SubtreeRetainer from 'flarum/utils/SubtreeRetainer';
 import DiscussionControls from 'flarum/utils/DiscussionControls';
 import slidable from 'flarum/utils/slidable';
 import extractText from 'flarum/utils/extractText';
+import classList from 'flarum/utils/classList';
 
 /**
  * The `DiscussionListItem` component shows a single discussion in the
@@ -24,9 +25,7 @@ import extractText from 'flarum/utils/extractText';
  * - `params`
  */
 export default class DiscussionListItem extends Component {
-  constructor(...args) {
-    super(...args);
-
+  init() {
     /**
      * Set up a subtree retainer so that the discussion will not be redrawn
      * unless new data comes in.
@@ -43,6 +42,16 @@ export default class DiscussionListItem extends Component {
     );
   }
 
+  attrs() {
+    return {
+      className: classList([
+        'DiscussionListItem',
+        this.active() ? 'active' : '',
+        this.props.discussion.isHidden() ? 'DiscussionListItem--hidden' : ''
+      ])
+    };
+  }
+
   view() {
     const retain = this.subtree.retain();
 
@@ -56,9 +65,10 @@ export default class DiscussionListItem extends Component {
     const jumpTo = Math.min(discussion.lastPostNumber(), (discussion.readNumber() || 0) + 1);
     const relevantPosts = this.props.params.q ? discussion.relevantPosts() : [];
     const controls = DiscussionControls.controls(discussion, this).toArray();
+    const attrs = this.attrs();
 
     return (
-      <div className={'DiscussionListItem ' + (this.active() ? 'active' : '')}>
+      <div {...attrs}>
 
         {controls.length ? Dropdown.component({
           icon: 'ellipsis-v',
@@ -75,7 +85,7 @@ export default class DiscussionListItem extends Component {
         <div className={'DiscussionListItem-content Slidable-content' + (isUnread ? ' unread' : '') + (isRead ? ' read' : '')}>
           <a href={startUser ? app.route.user(startUser) : '#'}
             className="DiscussionListItem-author"
-            title={extractText(app.trans('core.discussion_started', {user: startUser, ago: humanTime(discussion.startTime())}))}
+            title={extractText(app.translator.trans('core.forum.discussion_list.started_text', {user: startUser, ago: humanTime(discussion.startTime())}))}
             config={function(element) {
               $(element).tooltip({placement: 'right'});
               m.route.apply(this, arguments);
@@ -96,7 +106,7 @@ export default class DiscussionListItem extends Component {
 
           <span className="DiscussionListItem-count"
             onclick={this.markAsRead.bind(this)}
-            title={showUnread ? app.trans('core.mark_as_read') : ''}>
+            title={showUnread ? app.translator.trans('core.forum.discussion_list.mark_as_read_tooltip') : ''}>
             {abbreviateNumber(discussion[showUnread ? 'unreadCount' : 'repliesCount']())}
           </span>
 

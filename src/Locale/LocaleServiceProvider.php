@@ -10,45 +10,51 @@
 
 namespace Flarum\Locale;
 
-use Flarum\Events\RegisterLocales;
-use Flarum\Support\ServiceProvider;
+use Flarum\Event\ConfigureLocales;
+use Flarum\Foundation\AbstractServiceProvider;
+use Illuminate\Contracts\Events\Dispatcher;
+use Symfony\Component\Translation\Loader\YamlFileLoader;
+use Symfony\Component\Translation\MessageSelector;
 
-class LocaleServiceProvider extends ServiceProvider
+class LocaleServiceProvider extends AbstractServiceProvider
 {
     /**
-     * Bootstrap the application events.
-     *
-     * @return void
+     * {@inheritdoc}
      */
-    public function boot()
+    public function boot(Dispatcher $events)
     {
-        $manager = $this->app->make('flarum.localeManager');
+        $locales = $this->app->make('flarum.localeManager');
 
-        $this->registerLocale($manager, 'en', 'English');
+        $locales->addLocale($this->getDefaultLocale(), 'Default');
 
-        event(new RegisterLocales($manager));
+        $events->fire(new ConfigureLocales($locales));
     }
 
-    public function registerLocale(LocaleManager $manager, $locale, $title)
-    {
-        $path = __DIR__.'/../../locale/'.$locale;
-
-        $manager->addLocale($locale, $title);
-        $manager->addTranslations($locale, $path.'.yml');
-        $manager->addConfig($locale, $path.'.php');
-        $manager->addJsFile($locale, $path.'.js');
-    }
-
+    /**
+     * {@inheritdoc}
+     */
     public function register()
     {
         $this->app->singleton('Flarum\Locale\LocaleManager');
-
         $this->app->alias('Flarum\Locale\LocaleManager', 'flarum.localeManager');
 
-        $this->app->bind('translator', function ($app) {
-            $locales = $app->make('flarum.localeManager');
+        $this->app->singleton('translator', function () {
+            $defaultLocale = $this->getDefaultLocale();
 
-            return new Translator($locales->getTranslations('en'), $locales->getConfig('en')['plural']);
+            $translator = new Translator($defaultLocale, new MessageSelector());
+            $translator->setFallbackLocales([$defaultLocale, 'en']);
+            $translator->addLoader('yaml', new YamlFileLoader());
+
+            return $translator;
         });
+        $this->app->alias('translator', 'Symfony\Component\Translation\Translator');
+        $this->app->alias('translator', 'Symfony\Component\Translation\TranslatorInterface');
+    }
+
+    private function getDefaultLocale()
+    {
+        return $this->app->isInstalled() && $this->app->isUpToDate()
+            ? $this->app->make('flarum.settings')->get('default_locale', 'en')
+            : 'en';
     }
 }

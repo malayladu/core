@@ -16,9 +16,7 @@ import LoadingIndicator from 'flarum/components/LoadingIndicator';
  * - `user`
  */
 export default class AvatarEditor extends Component {
-  constructor(...args) {
-    super(...args);
-
+  init() {
     /**
      * Whether or not an avatar upload is in progress.
      *
@@ -62,7 +60,7 @@ export default class AvatarEditor extends Component {
     items.add('upload',
       Button.component({
         icon: 'upload',
-        children: app.trans('core.upload'),
+        children: app.translator.trans('core.forum.user.avatar_upload_button'),
         onclick: this.upload.bind(this)
       })
     );
@@ -70,7 +68,7 @@ export default class AvatarEditor extends Component {
     items.add('remove',
       Button.component({
         icon: 'times',
-        children: app.trans('core.remove'),
+        children: app.translator.trans('core.forum.user.avatar_remove_button'),
         onclick: this.remove.bind(this)
       })
     );
@@ -165,5 +163,6 @@ export default class AvatarEditor extends Component {
    */
   failure() {
     this.loading = false;
+    m.redraw();
   }
 }

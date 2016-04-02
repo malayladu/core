@@ -13,8 +13,8 @@ import DiscussionControls from 'flarum/utils/DiscussionControls';
  * the discussion list pane, the hero, the posts, and the sidebar.
  */
 export default class DiscussionPage extends Page {
-  constructor(...args) {
-    super(...args);
+  init() {
+    super.init();
 
     /**
      * The discussion that is being viewed.
@@ -128,7 +128,7 @@ export default class DiscussionPage extends Page {
       // component for the first time on page load, then any calls to m.redraw
       // will be ineffective and thus any configs (scroll code) will be run
       // before stuff is drawn to the page.
-      setTimeout(this.show.bind(this, preloadedDiscussion));
+      setTimeout(this.show.bind(this, preloadedDiscussion), 0);
     } else {
       const params = this.requestParams();
 
@@ -159,6 +159,7 @@ export default class DiscussionPage extends Page {
   show(discussion) {
     this.discussion = discussion;
 
+    app.history.push('discussion', discussion.title());
     app.setTitle(discussion.title());
     app.setTitleCount(0);
 
@@ -183,7 +184,7 @@ export default class DiscussionPage extends Page {
     // the specific post that was routed to.
     this.stream = new PostStream({discussion, includedPosts});
     this.stream.on('positionChanged', this.positionChanged.bind(this));
-    this.stream.goToNumber(m.route.param('near') || includedPosts[0].number(), true);
+    this.stream.goToNumber(m.route.param('near') || (includedPosts[0] && includedPosts[0].number()), true);
   }
 
   /**
@@ -273,7 +274,7 @@ export default class DiscussionPage extends Page {
     m.route(url, true);
     window.history.replaceState(null, document.title, url);
 
-    app.history.push('discussion');
+    app.history.push('discussion', discussion.title());
 
     // If the user hasn't read past here before, then we'll update their read
     // state and redraw.

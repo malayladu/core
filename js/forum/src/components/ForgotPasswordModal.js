@@ -1,6 +1,7 @@
 import Modal from 'flarum/components/Modal';
 import Alert from 'flarum/components/Alert';
 import Button from 'flarum/components/Button';
+import extractText from 'flarum/utils/extractText';
 
 /**
  * The `ForgotPasswordModal` component displays a modal which allows the user to
@@ -11,8 +12,8 @@ import Button from 'flarum/components/Button';
  * - `email`
  */
 export default class ForgotPasswordModal extends Modal {
-  constructor(...args) {
-    super(...args);
+  init() {
+    super.init();
 
     /**
      * The value of the email input.
@@ -34,21 +35,19 @@ export default class ForgotPasswordModal extends Modal {
   }
 
   title() {
-    return app.trans('core.forgot_password');
+    return app.translator.trans('core.forum.forgot_password.title');
   }
 
   content() {
     if (this.success) {
-      const emailProviderName = this.email().split('@')[1];
-
       return (
         <div className="Modal-body">
           <div className="Form Form--centered">
-            <p className="helpText">{app.trans('core.password_reset_email_sent')}</p>
+            <p className="helpText">{app.translator.trans('core.forum.forgot_password.email_sent_message')}</p>
             <div className="Form-group">
-              <a href={'http://' + emailProviderName} className="Button Button--primary Button--block">
-                {app.trans('core.go_to', {location: emailProviderName})}
-              </a>
+              <Button className="Button Button--primary Button--block" onclick={this.hide.bind(this)}>
+                {app.translator.trans('core.forum.forgot_password.dismiss_button')}
+              </Button>
             </div>
           </div>
         </div>
@@ -58,9 +57,9 @@ export default class ForgotPasswordModal extends Modal {
     return (
       <div className="Modal-body">
         <div className="Form Form--centered">
-          <p className="helpText">{app.trans('core.forgot_password_help')}</p>
+          <p className="helpText">{app.translator.trans('core.forum.forgot_password.text')}</p>
           <div className="Form-group">
-            <input className="FormControl" name="email" type="email" placeholder={app.trans('core.email')}
+            <input className="FormControl" name="email" type="email" placeholder={extractText(app.translator.trans('core.forum.forgot_password.email_placeholder'))}
               value={this.email()}
               onchange={m.withAttr('value', this.email)}
               disabled={this.loading} />
@@ -70,7 +69,7 @@ export default class ForgotPasswordModal extends Modal {
               className: 'Button Button--primary Button--block',
               type: 'submit',
               loading: this.loading,
-              children: app.trans('core.recover_password')
+              children: app.translator.trans('core.forum.forgot_password.submit_button')
             })}
           </div>
         </div>
@@ -87,23 +86,21 @@ export default class ForgotPasswordModal extends Modal {
       method: 'POST',
       url: app.forum.attribute('apiUrl') + '/forgot',
       data: {email: this.email()},
-      handlers: {
-        404: () => {
-          this.alert = new Alert({type: 'warning', message: 'That email wasn\'t found in our database.'});
-          throw new Error();
-        }
-      }
-    }).then(
-      () => {
-        this.loading = false;
+      errorHandler: this.onerror.bind(this)
+    })
+      .then(() => {
         this.success = true;
         this.alert = null;
-        m.redraw();
-      },
-      response => {
-        this.loading = false;
-        this.handleErrors(response);
-      }
-    );
+      })
+      .catch(() => {})
+      .then(this.loaded.bind(this));
+  }
+
+  onerror(error) {
+    if (error.status === 404) {
+      error.alert.props.children = app.translator.trans('core.forum.forgot_password.not_found_message');
+    }
+
+    super.onerror(error);
   }
 }

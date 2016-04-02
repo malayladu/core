@@ -79,26 +79,27 @@ export default class Store {
    *     Alternatively, if an object is passed, it will be handled as the
    *     `query` parameter.
    * @param {Object} [query]
+   * @param {Object} [options]
    * @return {Promise}
    * @public
    */
-  find(type, id, query = {}) {
+  find(type, id, query = {}, options = {}) {
     let data = query;
     let url = app.forum.attribute('apiUrl') + '/' + type;
 
     if (id instanceof Array) {
-      url += '?ids[]=' + id.join('&ids[]=');
+      url += '?filter[id]=' + id.join(',');
     } else if (typeof id === 'object') {
       data = id;
     } else if (id) {
       url += '/' + id;
     }
 
-    return app.request({
+    return app.request(Object.assign({
       method: 'GET',
       url,
       data
-    }).then(this.pushPayload.bind(this));
+    }, options)).then(this.pushPayload.bind(this));
   }
 
   /**

@@ -1,6 +1,7 @@
 import Component from 'flarum/Component';
 import icon from 'flarum/helpers/icon';
 import extract from 'flarum/utils/extract';
+import extractText from 'flarum/utils/extractText';
 import LoadingIndicator from 'flarum/components/LoadingIndicator';
 
 /**
@@ -25,7 +26,13 @@ export default class Button extends Component {
 
     delete attrs.children;
 
-    attrs.className = (attrs.className || '');
+    attrs.className = attrs.className || '';
+    attrs.type = attrs.type || 'button';
+
+    // If nothing else is provided, we use the textual button content as tooltip
+    if (!attrs.title && this.props.children) {
+      attrs.title = extractText(attrs.title);
+    }
 
     const iconName = extract(attrs, 'icon');
     if (iconName) attrs.className += ' hasIcon';

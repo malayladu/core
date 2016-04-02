@@ -34,7 +34,7 @@ export default class Component {
    * @param {Array|Object} children
    * @public
    */
-  constructor(props = {}, children) {
+  constructor(props = {}, children = null) {
     if (children) props.children = children;
 
     this.constructor.initProps(props);
@@ -53,6 +53,14 @@ export default class Component {
      * @public
      */
     this.element = null;
+
+    /**
+     * Whether or not to retain the component's subtree on redraw.
+     *
+     * @type {boolean}
+     * @public
+     */
+    this.retain = false;
 
     this.init();
   }
@@ -91,7 +99,7 @@ export default class Component {
    * @public
    */
   render() {
-    const vdom = this.view();
+    const vdom = this.retain ? {subtree: 'retain'} : this.view();
 
     // Override the root element's config attribute with our own function, which
     // will set the component instance's element property to the root DOM
@@ -158,6 +166,7 @@ export default class Component {
    *
    * @see https://lhorie.github.io/mithril/mithril.component.html
    * @param {Object} [props] Properties to set on the component
+   * @param children
    * @return {Object} The Mithril component object
    * @property {function} controller
    * @property {function} view
@@ -165,7 +174,7 @@ export default class Component {
    * @property {Object} props The props that were passed to the component
    * @public
    */
-  static component(props = {}, children) {
+  static component(props = {}, children = null) {
     const componentProps = Object.assign({}, props);
 
     if (children) componentProps.children = children;

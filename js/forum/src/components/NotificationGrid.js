@@ -12,17 +12,15 @@ import ItemList from 'flarum/utils/ItemList';
  * - `user`
  */
 export default class NotificationGrid extends Component {
-  constructor(...args) {
-    super(...args);
-
+  init() {
     /**
      * Information about the available notification methods.
      *
      * @type {Array}
      */
     this.methods = [
-      {name: 'alert', icon: 'bell', label: app.trans('core.alert')},
-      {name: 'email', icon: 'envelope-o', label: app.trans('core.email')}
+      {name: 'alert', icon: 'bell', label: app.translator.trans('core.forum.settings.notify_by_web_heading')},
+      {name: 'email', icon: 'envelope-o', label: app.translator.trans('core.forum.settings.notify_by_email_heading')}
     ];
 
     /**
@@ -182,7 +180,7 @@ export default class NotificationGrid extends Component {
     items.add('discussionRenamed', {
       name: 'discussionRenamed',
       icon: 'pencil',
-      label: app.trans('core.notify_discussion_renamed')
+      label: app.translator.trans('core.forum.settings.notify_discussion_renamed_label')
     });
 
     return items;

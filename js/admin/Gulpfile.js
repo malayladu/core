@@ -1,15 +1,14 @@
 var gulp = require('flarum-gulp');
 
-var nodeDir = 'node_modules';
 var bowerDir = '../bower_components';
 
 gulp({
+  includeHelpers: true,
   files: [
-    nodeDir + '/babel-core/external-helpers.js',
-
     bowerDir + '/es6-micro-loader/dist/system-polyfill.js',
 
     bowerDir + '/mithril/mithril.js',
+    bowerDir + '/m.attrs.bidi/bidi.js',
     bowerDir + '/jquery/dist/jquery.js',
     bowerDir + '/moment/moment.js',
 
@@ -28,6 +27,5 @@ gulp({
       '../lib/**/*.js'
     ]
   },
-  externalHelpers: true,
   outputFile: 'dist/app.js'
 });

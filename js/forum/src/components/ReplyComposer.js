@@ -2,6 +2,14 @@ import ComposerBody from 'flarum/components/ComposerBody';
 import Alert from 'flarum/components/Alert';
 import Button from 'flarum/components/Button';
 import icon from 'flarum/helpers/icon';
+import extractText from 'flarum/utils/extractText';
+
+function minimizeComposerIfFullScreen(e) {
+  if (app.composer.isFullScreen()) {
+    app.composer.minimize();
+    e.stopPropagation();
+  }
+}
 
 /**
  * The `ReplyComposer` component displays the composer content for replying to a
@@ -13,10 +21,12 @@ import icon from 'flarum/helpers/icon';
  * - `discussion`
  */
 export default class ReplyComposer extends ComposerBody {
-  constructor(...args) {
-    super(...args);
+  init() {
+    super.init();
 
-    this.editor.props.preview = () => {
+    this.editor.props.preview = e => {
+      minimizeComposerIfFullScreen(e);
+
       m.route(app.route.discussion(this.props.discussion, 'reply'));
     };
   }
@@ -24,18 +34,25 @@ export default class ReplyComposer extends ComposerBody {
   static initProps(props) {
     super.initProps(props);
 
-    props.placeholder = props.placeholder || app.trans('core.write_a_reply');
-    props.submitLabel = props.submitLabel || app.trans('core.post_reply');
-    props.confirmExit = props.confirmExit || app.trans('core.confirm_discard_reply');
+    props.placeholder = props.placeholder || extractText(app.translator.trans('core.forum.composer_reply.body_placeholder'));
+    props.submitLabel = props.submitLabel || app.translator.trans('core.forum.composer_reply.submit_button');
+    props.confirmExit = props.confirmExit || extractText(app.translator.trans('core.forum.composer_reply.discard_confirmation'));
   }
 
   headerItems() {
     const items = super.headerItems();
     const discussion = this.props.discussion;
 
+    const routeAndMinimize = function(element, isInitialized) {
+      if (isInitialized) return;
+      $(element).on('click', minimizeComposerIfFullScreen);
+      m.route.apply(this, arguments);
+    };
+
     items.add('title', (
       <h3>
-        {icon('reply')}{' '}<a href={app.route.discussion(discussion)} config={m.route}>{discussion.title()}</a>
+        {icon('reply')} {' '}
+        <a href={app.route.discussion(discussion)} config={routeAndMinimize}>{discussion.title()}</a>
       </h3>
     ));
 
@@ -75,7 +92,7 @@ export default class ReplyComposer extends ComposerBody {
           let alert;
           const viewButton = Button.component({
             className: 'Button Button--link',
-            children: app.trans('core.view'),
+            children: app.translator.trans('core.forum.composer_reply.view_button'),
             onclick: () => {
               m.route(app.route.post(post));
               app.alerts.dismiss(alert);
@@ -84,7 +101,7 @@ export default class ReplyComposer extends ComposerBody {
           app.alerts.show(
             alert = new Alert({
               type: 'success',
-              message: app.trans('core.reply_posted'),
+              message: app.translator.trans('core.forum.composer_reply.posted_message'),
               controls: [viewButton]
             })
           );
@@ -92,11 +109,7 @@ export default class ReplyComposer extends ComposerBody {
 
         app.composer.hide();
       },
-      response => {
-        this.loading = false;
-        m.redraw();
-        app.alertErrors(response.errors);
-      }
+      this.loaded.bind(this)
     );
   }
 }

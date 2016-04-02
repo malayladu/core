@@ -6,8 +6,8 @@ import Button from 'flarum/components/Button';
  * to change their email address.
  */
 export default class ChangeEmailModal extends Modal {
-  constructor(...args) {
-    super(...args);
+  init() {
+    super.init();
 
     /**
      * Whether or not the email has been changed successfully.
@@ -22,6 +22,13 @@ export default class ChangeEmailModal extends Modal {
      * @type {function}
      */
     this.email = m.prop(app.session.user.email());
+
+    /**
+     * The value of the password input.
+     *
+     * @type {function}
+     */
+    this.password = m.prop('');
   }
 
   className() {
@@ -29,21 +36,19 @@ export default class ChangeEmailModal extends Modal {
   }
 
   title() {
-    return app.trans('core.change_email');
+    return app.translator.trans('core.forum.change_email.title');
   }
 
   content() {
     if (this.success) {
-      const emailProviderName = this.email().split('@')[1];
-
       return (
         <div className="Modal-body">
           <div className="Form Form--centered">
-            <p className="helpText">{app.trans('core.confirmation_email_sent', {email: <strong>{this.email()}</strong>})}</p>
+            <p className="helpText">{app.translator.trans('core.forum.change_email.confirmation_message', {email: <strong>{this.email()}</strong>})}</p>
             <div className="Form-group">
-              <a href={'http://' + emailProviderName} className="Button Button--primary Button--block">
-                {app.trans('core.go_to', {location: emailProviderName})}
-              </a>
+              <Button className="Button Button--primary Button--block" onclick={this.hide.bind(this)}>
+                {app.translator.trans('core.forum.change_email.dismiss_button')}
+              </Button>
             </div>
           </div>
         </div>
@@ -56,8 +61,13 @@ export default class ChangeEmailModal extends Modal {
           <div className="Form-group">
             <input type="email" name="email" className="FormControl"
               placeholder={app.session.user.email()}
-              value={this.email()}
-              onchange={m.withAttr('value', this.email)}
+              bidi={this.email}
+              disabled={this.loading}/>
+          </div>
+          <div className="Form-group">
+            <input type="password" name="password" className="FormControl"
+              placeholder={app.translator.trans('core.forum.change_email.confirm_password_label')}
+              bidi={this.password}
               disabled={this.loading}/>
           </div>
           <div className="Form-group">
@@ -65,7 +75,7 @@ export default class ChangeEmailModal extends Modal {
               className: 'Button Button--primary Button--block',
               type: 'submit',
               loading: this.loading,
-              children: app.trans('core.save_changes')
+              children: app.translator.trans('core.forum.change_email.submit_button')
             })}
           </div>
         </div>
@@ -83,17 +93,24 @@ export default class ChangeEmailModal extends Modal {
       return;
     }
 
+    const oldEmail = app.session.user.email();
+
     this.loading = true;
 
-    app.session.user.save({email: this.email()}).then(
-      () => {
-        this.loading = false;
-        this.success = true;
-        m.redraw();
-      },
-      () => {
-        this.loading = false;
-      }
-    );
+    app.session.user.save({email: this.email()}, {
+      errorHandler: this.onerror.bind(this),
+      meta: {password: this.password()}
+    })
+      .then(() => this.success = true)
+      .catch(() => {})
+      .then(this.loaded.bind(this));
+  }
+
+  onerror(error) {
+    if (error.status === 401) {
+      error.alert.props.children = app.translator.trans('core.forum.change_email.incorrect_password_message');
+    }
+
+    super.onerror(error);
   }
 }

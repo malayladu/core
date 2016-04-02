@@ -10,9 +10,9 @@
 
 namespace Flarum\Locale;
 
-use Flarum\Assets\RevisionCompiler;
+use Flarum\Asset\JsCompiler as BaseJsCompiler;
 
-class JsCompiler extends RevisionCompiler
+class JsCompiler extends BaseJsCompiler
 {
     protected $translations = [];
 
@@ -32,10 +32,10 @@ class JsCompiler extends RevisionCompiler
             $output .= file_get_contents($filename);
         }
 
-        $output .= "}
+        $output .= '}
     };
-});";
+});';
 
-        return $output;
+        return $this->format($output);
     }
 }

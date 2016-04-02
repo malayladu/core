@@ -2,26 +2,22 @@
 // Posts
 
 .Post {
-  padding: 30px 20px;
+  padding: 20px;
   margin: -1px -20px;
   transition: 0.2s box-shadow, top 0.2s, opacity 0.2s;
   position: relative;
   top: 0;
   border-radius: @border-radius;
+  .clearfix();
 
   &.editing {
     top: 5px;
     opacity: 0.5;
   }
 }
-.Post-controls {
-  float: right;
-  margin-top: -8px;
-  margin-left: 10px;
-}
 
 .Post-header {
-  margin-bottom: 10px;
+  margin-bottom: 15px;
   color: @muted-color;
 
   &, a {
@@ -50,7 +46,17 @@
   h3, h3 a {
     color: @heading-color;
     font-weight: bold;
-    font-size: 15px;
+    font-size: 14px;
+  }
+
+  .UserOnline {
+    & .icon {
+      font-size: 12px;
+    }
+
+    & .fa-circle {
+      color: @online-user-circle-color;
+    }
   }
 
   .UserCard {
@@ -75,7 +81,7 @@
   pointer-events: none;
 
   .Badge {
-    margin-left: -15px;
+    margin-left: -10px;
     position: relative;
     pointer-events: auto;
   }
@@ -85,6 +91,7 @@
   font-size: 14px;
   line-height: 1.7;
   position: relative;
+  overflow: auto;
 
   p, ul, ol, blockquote {
     margin-bottom: 1em;
@@ -147,6 +154,9 @@
   .Post-header, .Post-header a, .PostUser h3, .PostUser h3 a {
     color: @muted-more-color;
   }
+  &:not(.revealContent) .Post-header {
+    margin-bottom: 0;
+  }
   .Post-body, .Post-footer, h3 .Avatar, .PostUser-badges {
     position: absolute;
     visibility: hidden;
@@ -166,6 +176,9 @@
     background: fade(@muted-more-color, 30%);
     color: @muted-more-color;
   }
+}
+.Post--loading {
+  opacity: 0.5;
 }
 .PostMeta {
   display: inline;
@@ -208,12 +221,7 @@
   }
 }
 .EventPost-info {
-  font-size: 15px;
-}
-
-.DiscussionRenamedPost-old, .DiscussionRenamedPost-new {
-  font-weight: normal;
-  font-style: italic;
+  font-size: 14px;
 }
 
 .Post-footer, .Post-actions {
@@ -234,6 +242,8 @@
   }
 }
 .Post-footer {
+  margin-top: 5px;
+
   > ul {
     > li {
       margin-bottom: 5px;
@@ -245,21 +255,31 @@
   }
 }
 .Post-actions {
-  margin-top: 10px;
+  margin-top: -5px;
+  float: right;
+  position: relative;
   .transition(opacity 0.2s);
 
+  .EventPost &, .Post--hidden:not(.revealContent) & {
+    margin-top: -27px;
+    margin-bottom: -15px;
+  }
+
   @media @tablet-up {
-    margin-bottom: -10px;
-    opacity: 0;
+    .no-touch & {
+      opacity: 0;
+    }
   }
 
   > ul {
     > li {
-      margin-right: 10px;
+      margin-right: 0;
+      margin-left: -5px;
       display: inline-block;
+      vertical-align: top;
     }
   }
-  .Post:hover & {
+  .Post:hover &, &.open {
     opacity: 1;
   }
 }
@@ -292,14 +312,6 @@
 }
 
 @media @phone {
-  .Post-controls {
-    margin-top: -6px;
-    margin-right: -8px;
-
-    .Dropdown-toggle {
-      opacity: 0.5;
-    }
-  }
   .Post-header {
     .Avatar {
       .Avatar--size(32px);
@@ -319,7 +331,7 @@
     }
   }
   .EventPost {
-    padding-left: 30px;
+    padding-left: 50px;
   }
   .EventPost-icon {
     font-size: 18px;
@@ -328,33 +340,27 @@
   }
 }
 
+@avatar-column-width: 85px;
+
 @media @tablet-up {
   .Post {
-    padding-left: 20px + 90px;
-
-    .Post-controls {
-      opacity: 0;
-      transition: opacity 0.2s;
-    }
-    &:hover .Post-controls, .Post-controls.open {
-      opacity: 1;
-    }
+    padding-left: 20px + @avatar-column-width;
   }
   .PostUser-avatar {
-    margin-left: -90px;
+    margin-left: -@avatar-column-width;
     float: left;
     .Avatar--size(64px);
   }
   .PostUser-badges {
     float: left;
     position: relative;
-    margin-left: -85px;
+    margin-left: -@avatar-column-width + 5px;
     margin-top: -3px;
     width: 64px;
   }
   .EventPost-icon {
     text-align: right;
-    margin-left: -90px;
+    margin-left: -@avatar-column-width;
     width: 64px;
     font-size: 22px;
   }
@@ -368,7 +374,6 @@
   border: 2px dashed @control-bg;
   color: @muted-color;
   border-radius: 10px;
-  padding: 20px;
 
   .Post-header {
     margin: 0;
@@ -377,9 +382,6 @@
 }
 @media @tablet-up {
   .ReplyPlaceholder {
-    margin-left: -20px;
-    margin-right: -20px;
-    padding-left: 110px;
     border-color: transparent;
     transition: border-color 0.2s;
 

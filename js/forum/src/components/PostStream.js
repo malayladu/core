@@ -5,6 +5,7 @@ import anchorScroll from 'flarum/utils/anchorScroll';
 import mixin from 'flarum/utils/mixin';
 import evented from 'flarum/utils/evented';
 import ReplyPlaceholder from 'flarum/components/ReplyPlaceholder';
+import Button from 'flarum/components/Button';
 
 /**
  * The `PostStream` component displays an infinitely-scrollable wall of posts in
@@ -15,10 +16,8 @@ import ReplyPlaceholder from 'flarum/components/ReplyPlaceholder';
  * - `discussion`
  * - `includedPosts`
  */
-class PostStream extends mixin(Component, evented) {
-  constructor(...args) {
-    super(...args);
-
+class PostStream extends Component {
+  init() {
     /**
      * The discussion to display the post stream for.
      *
@@ -56,7 +55,9 @@ class PostStream extends mixin(Component, evented) {
       return this.goToLast().then(() => {
         $('html,body').stop(true).animate({
           scrollTop: $(document).height() - $(window).height()
-        }, 'fast');
+        }, 'fast', () => {
+          this.flashItem(this.$('.PostStream-item:last-child'));
+        });
       });
     }
 
@@ -181,7 +182,7 @@ class PostStream extends mixin(Component, evented) {
       .map(id => {
         const post = app.store.getById('posts', id);
 
-        return post && post.discussion() && post.user() !== false ? post : null;
+        return post && post.discussion() && typeof post.canEdit() !== 'undefined' ? post : null;
       });
   }
 
@@ -196,58 +197,72 @@ class PostStream extends mixin(Component, evented) {
     this.visibleEnd = this.sanitizeIndex(this.visibleEnd);
     this.viewingEnd = this.visibleEnd === this.count();
 
+    const posts = this.posts();
+    const postIds = this.discussion.postIds();
+
+    const items = posts.map((post, i) => {
+      let content;
+      const attrs = {'data-index': this.visibleStart + i};
+
+      if (post) {
+        const time = post.time();
+        const PostComponent = app.postComponents[post.contentType()];
+        content = PostComponent ? PostComponent.component({post}) : '';
+
+        attrs.key = 'post' + post.id();
+        attrs.config = fadeIn;
+        attrs['data-time'] = time.toISOString();
+        attrs['data-number'] = post.number();
+        attrs['data-id'] = post.id();
+        attrs['data-type'] = post.contentType();
+
+        // If the post before this one was more than 4 hours ago, we will
+        // display a 'time gap' indicating how long it has been in between
+        // the posts.
+        const dt = time - lastTime;
+
+        if (dt > 1000 * 60 * 60 * 24 * 4) {
+          content = [
+            <div className="PostStream-timeGap">
+              <span>{app.translator.trans('core.forum.post_stream.time_lapsed_text', {period: moment.duration(dt).humanize()})}</span>
+            </div>,
+            content
+          ];
+        }
+
+        lastTime = time;
+      } else {
+        attrs.key = 'post' + postIds[this.visibleStart + i];
+
+        content = PostLoading.component();
+      }
+
+      return <div className="PostStream-item" {...attrs}>{content}</div>;
+    });
+
+    if (!this.viewingEnd && posts[this.visibleEnd - this.visibleStart - 1]) {
+      items.push(
+        <div className="PostStream-loadMore" key="loadMore">
+          <Button className="Button" onclick={this.loadNext.bind(this)}>
+            {app.translator.trans('core.forum.post_stream.load_more_button')}
+          </Button>
+        </div>
+      );
+    }
+
+    // If we're viewing the end of the discussion, the user can reply, and
+    // is not already doing so, then show a 'write a reply' placeholder.
+    if (this.viewingEnd && (!app.session.user || this.discussion.canReply())) {
+      items.push(
+        <div className="PostStream-item" key="reply">
+          {ReplyPlaceholder.component({discussion: this.discussion})}
+        </div>
+      );
+    }
+
     return (
       <div className="PostStream">
-        {this.posts().map((post, i) => {
-          let content;
-          const attrs = {'data-index': this.visibleStart + i};
-
-          if (post) {
-            const time = post.time();
-            const PostComponent = app.postComponents[post.contentType()];
-            content = PostComponent ? PostComponent.component({post}) : '';
-
-            attrs.key = 'post' + post.id();
-            attrs.config = fadeIn;
-            attrs['data-time'] = time.toISOString();
-            attrs['data-number'] = post.number();
-            attrs['data-id'] = post.id();
-
-            // If the post before this one was more than 4 hours ago, we will
-            // display a 'time gap' indicating how long it has been in between
-            // the posts.
-            const dt = time - lastTime;
-
-            if (dt > 1000 * 60 * 60 * 24 * 4) {
-              content = [
-                <div className="PostStream-timeGap">
-                  <span>{app.trans('core.period_later', {period: moment.duration(dt).humanize()})}</span>
-                </div>,
-                content
-              ];
-            }
-
-            lastTime = time;
-          } else {
-            attrs.key = this.visibleStart + i;
-
-            content = PostLoading.component();
-          }
-
-          return <div className="PostStream-item" {...attrs}>{content}</div>;
-        })}
-
-        {
-          // If we're viewing the end of the discussion, the user can reply, and
-          // is not already doing so, then show a 'write a reply' placeholder.
-          this.viewingEnd &&
-            (!app.session.user || this.discussion.canReply())
-            ? (
-              <div className="PostStream-item" key="reply">
-                {ReplyPlaceholder.component({discussion: this.discussion})}
-              </div>
-            ) : ''
-        }
+        {items}
       </div>
     );
   }
@@ -277,7 +292,7 @@ class PostStream extends mixin(Component, evented) {
     const marginTop = this.getMarginTop();
     const viewportHeight = $(window).height() - marginTop;
     const viewportTop = top + marginTop;
-    const loadAheadDistance = 500;
+    const loadAheadDistance = 300;
 
     if (this.visibleStart > 0) {
       const $item = this.$('.PostStream-item[data-index=' + this.visibleStart + ']');
@@ -391,7 +406,7 @@ class PostStream extends mixin(Component, evented) {
     this.discussion.postIds().slice(start, end).forEach(id => {
       const post = app.store.getById('posts', id);
 
-      if (post && post.discussion()) {
+      if (post && post.discussion() && typeof post.canEdit() !== 'undefined') {
         loaded.push(post);
       } else {
         loadIds.push(id);
@@ -464,7 +479,7 @@ class PostStream extends mixin(Component, evented) {
 
       if (top + height > scrollTop) {
         if (!startNumber) {
-          startNumber = $item.data('number');
+          startNumber = endNumber = $item.data('number');
         }
 
         if (top + height < scrollTop + viewportHeight) {
@@ -582,5 +597,7 @@ class PostStream extends mixin(Component, evented) {
  * @type {Integer}
  */
 PostStream.loadCount = 20;
+
+Object.assign(PostStream.prototype, evented);
 
 export default PostStream;

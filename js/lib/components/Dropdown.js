@@ -14,6 +14,7 @@ import listItems from 'flarum/helpers/listItems';
  * - `caretIcon` The name of an icon to show on the right of the button.
  * - `label` The label of the dropdown toggle button. Defaults to 'Controls'.
  * - `onhide`
+ * - `onshow`
  *
  * The children will be displayed as a list inside of the dropdown menu.
  */
@@ -24,7 +25,7 @@ export default class Dropdown extends Component {
     props.className = props.className || '';
     props.buttonClassName = props.buttonClassName || '';
     props.menuClassName = props.menuClassName || '';
-    props.label = props.label || app.trans('core.controls');
+    props.label = props.label || '';
     props.caretIcon = typeof props.caretIcon !== 'undefined' ? props.caretIcon : 'caret-down';
   }
 
@@ -46,15 +47,27 @@ export default class Dropdown extends Component {
     // bottom of the viewport. If it does, we will apply class to make it show
     // above the toggle button instead of below it.
     this.$().on('shown.bs.dropdown', () => {
-      const $menu = this.$('.Dropdown-menu').removeClass('Dropdown-menu--top');
+      const $menu = this.$('.Dropdown-menu');
+      const isRight = $menu.hasClass('Dropdown-menu--right');
+      $menu.removeClass('Dropdown-menu--top Dropdown-menu--right');
 
       $menu.toggleClass(
         'Dropdown-menu--top',
         $menu.offset().top + $menu.height() > $(window).scrollTop() + $(window).height()
       );
+
+      $menu.toggleClass(
+        'Dropdown-menu--right',
+        isRight || $menu.offset().left + $menu.width() > $(window).scrollLeft() + $(window).width()
+      );
+
+      if (this.props.onshow) {
+        this.props.onshow();
+        m.redraw();
+      }
     });
 
-    this.$().on('hide.bs.dropdown', () => {
+    this.$().on('hidden.bs.dropdown', () => {
       if (this.props.onhide) {
         this.props.onhide();
         m.redraw();

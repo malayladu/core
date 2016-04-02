@@ -10,7 +10,7 @@ export default class Model {
    * @param {Store} store The data store that this model should be persisted to.
    * @public
    */
-  constructor(data = {}, store) {
+  constructor(data = {}, store = null) {
     /**
      * The resource object from the API.
      *
@@ -88,7 +88,7 @@ export default class Model {
         // relationship data object.
         for (const innerKey in data[key]) {
           if (data[key][innerKey] instanceof Model) {
-            data[key][innerKey] = {data: Model.getRelationshipData(data[key][innerKey])};
+            data[key][innerKey] = {data: Model.getIdentifier(data[key][innerKey])};
           }
           this.data[key][innerKey] = data[key][innerKey];
         }
@@ -117,10 +117,11 @@ export default class Model {
    *
    * @param {Object} attributes The attributes to save. If a 'relationships' key
    *     exists, it will be extracted and relationships will also be saved.
+   * @param {Object} [options]
    * @return {Promise}
    * @public
    */
-  save(attributes) {
+  save(attributes, options = {}) {
     const data = {
       type: this.data.type,
       id: this.data.id,
@@ -138,8 +139,8 @@ export default class Model {
 
         data.relationships[key] = {
           data: model instanceof Array
-            ? model.map(Model.getRelationshipData)
-            : Model.getRelationshipData(model)
+            ? model.map(Model.getIdentifier)
+            : Model.getIdentifier(model)
         };
       }
 
@@ -149,15 +150,18 @@ export default class Model {
     // Before we update the model's data, we should make a copy of the model's
     // old data so that we can revert back to it if something goes awry during
     // persistence.
-    const oldData = JSON.parse(JSON.stringify(this.data));
+    const oldData = this.copyData();
 
     this.pushData(data);
 
-    return app.request({
+    const request = {data};
+    if (options.meta) request.meta = options.meta;
+
+    return app.request(Object.assign({
       method: this.exists ? 'PATCH' : 'POST',
       url: app.forum.attribute('apiUrl') + this.apiEndpoint(),
-      data: {data}
-    }).then(
+      data: request
+    }, options)).then(
       // If everything went well, we'll make sure the store knows that this
       // model exists now (if it didn't already), and we'll push the data that
       // the API returned into the store.
@@ -171,6 +175,7 @@ export default class Model {
       // old data! We'll revert to that and let others handle the error.
       response => {
         this.pushData(oldData);
+        m.lazyRedraw();
         throw response;
       }
     );
@@ -180,17 +185,18 @@ export default class Model {
    * Send a request to delete the resource.
    *
    * @param {Object} data Data to send along with the DELETE request.
+   * @param {Object} [options]
    * @return {Promise}
    * @public
    */
-  delete(data) {
+  delete(data, options = {}) {
     if (!this.exists) return m.deferred.resolve().promise;
 
-    return app.request({
+    return app.request(Object.assign({
       method: 'DELETE',
       url: app.forum.attribute('apiUrl') + this.apiEndpoint(),
       data
-    }).then(() => {
+    }, options)).then(() => {
       this.exists = false;
       this.store.remove(this);
     });
@@ -204,6 +210,10 @@ export default class Model {
    */
   apiEndpoint() {
     return '/' + this.data.type + (this.exists ? '/' + this.data.id : '');
+  }
+
+  copyData() {
+    return JSON.parse(JSON.stringify(this.data));
   }
 
   /**
@@ -282,13 +292,13 @@ export default class Model {
   }
 
   /**
-   * Get a relationship data object for the given model.
+   * Get a resource identifier object for the given model.
    *
    * @param {Model} model
    * @return {Object}
    * @protected
    */
-  static getRelationshipData(model) {
+  static getIdentifier(model) {
     return {
       type: model.data.type,
       id: model.data.id

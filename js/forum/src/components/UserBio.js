@@ -1,15 +1,14 @@
 import Component from 'flarum/Component';
 import LoadingIndicator from 'flarum/components/LoadingIndicator';
 import classList from 'flarum/utils/classList';
+import extractText from 'flarum/utils/extractText';
 
 /**
  * The `UserBio` component displays a user's bio, optionally letting the user
  * edit it.
  */
 export default class UserBio extends Component {
-  constructor(...args) {
-    super(...args);
-
+  init() {
     /**
      * Whether or not the bio is currently being edited.
      *
@@ -30,7 +29,7 @@ export default class UserBio extends Component {
     let content;
 
     if (this.editing) {
-      content = <textarea className="FormControl" placeholder={app.trans('core.bio_placeholder')} rows="3" value={user.bio()}/>;
+      content = <textarea className="FormControl" placeholder={extractText(app.translator.trans('core.forum.user.bio_placeholder'))} rows="3" value={user.bio()}/>;
     } else {
       let subContent;
 
@@ -42,7 +41,7 @@ export default class UserBio extends Component {
         if (bioHtml) {
           subContent = m.trust(bioHtml);
         } else if (this.props.editable) {
-          subContent = <p className="UserBio-placeholder">{app.trans('core.bio_placeholder')}</p>;
+          subContent = <p className="UserBio-placeholder">{app.translator.trans('core.forum.user.bio_placeholder')}</p>;
         }
       }
 
@@ -92,10 +91,12 @@ export default class UserBio extends Component {
     if (user.bio() !== value) {
       this.loading = true;
 
-      user.save({bio: value}).then(() => {
-        this.loading = false;
-        m.redraw();
-      });
+      user.save({bio: value})
+        .catch(() => {})
+        .then(() => {
+          this.loading = false;
+          m.redraw();
+        });
     }
 
     this.editing = false;

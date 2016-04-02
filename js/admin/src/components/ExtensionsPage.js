@@ -1,4 +1,4 @@
-import Component from 'flarum/Component';
+import Page from 'flarum/components/Page';
 import LinkButton from 'flarum/components/LinkButton';
 import Button from 'flarum/components/Button';
 import Dropdown from 'flarum/components/Dropdown';
@@ -7,15 +7,16 @@ import AddExtensionModal from 'flarum/components/AddExtensionModal';
 import LoadingModal from 'flarum/components/LoadingModal';
 import ItemList from 'flarum/utils/ItemList';
 import icon from 'flarum/helpers/icon';
+import listItems from 'flarum/helpers/listItems';
 
-export default class ExtensionsPage extends Component {
+export default class ExtensionsPage extends Page {
   view() {
     return (
       <div className="ExtensionsPage">
         <div className="ExtensionsPage-header">
           <div className="container">
             {Button.component({
-              children: 'Add Extension',
+              children: app.translator.trans('core.admin.extensions.add_button'),
               icon: 'plus',
               className: 'Button Button--primary',
               onclick: () => app.modal.show(new AddExtensionModal())
@@ -26,29 +27,33 @@ export default class ExtensionsPage extends Component {
         <div className="ExtensionsPage-list">
           <div className="container">
             <ul className="ExtensionList">
-              {app.extensions
-                .sort((a, b) => a.name.localeCompare(b.name))
-                .map(extension => (
-                  <li className={'ExtensionListItem ' + (!this.isEnabled(extension.name) ? 'disabled' : '')}>
-                    {Dropdown.component({
-                      icon: 'ellipsis-v',
-                      children: this.controlItems(extension).toArray(),
-                      className: 'ExtensionListItem-controls',
-                      buttonClassName: 'Button Button--icon Button--flat',
-                      menuClassName: 'Dropdown-menu--right'
-                    })}
+              {Object.keys(app.extensions)
+                .map(id => {
+                  const extension = app.extensions[id];
+                  const controls = this.controlItems(extension.id).toArray();
+
+                  return <li className={'ExtensionListItem ' + (!this.isEnabled(extension.id) ? 'disabled' : '')}>
                     <div className="ExtensionListItem-content">
                       <span className="ExtensionListItem-icon ExtensionIcon" style={extension.icon}>
                         {extension.icon ? icon(extension.icon.name) : ''}
                       </span>
-                      <h4 className="ExtensionListItem-title">
-                        {extension.title}{' '}
-                        <small className="ExtensionListItem-version">{extension.version}</small>
-                      </h4>
-                      <div className="ExtensionListItem-description">{extension.description}</div>
+                      {controls.length ? (
+                        <Dropdown
+                          className="ExtensionListItem-controls"
+                          buttonClassName="Button Button--icon Button--flat"
+                          menuClassName="Dropdown-menu--right"
+                          icon="ellipsis-h">
+                          {controls}
+                        </Dropdown>
+                      ) : ''}
+                      <label className="ExtensionListItem-title">
+                        <input type="checkbox" checked={this.isEnabled(extension.id)} onclick={this.toggle.bind(this, extension.id)}/> {' '}
+                        {extension.extra['flarum-extension'].title}
+                      </label>
+                      <div className="ExtensionListItem-version">{extension.version}</div>
                     </div>
-                  </li>
-                ))}
+                  </li>;
+                })}
             </ul>
           </div>
         </div>
@@ -56,40 +61,26 @@ export default class ExtensionsPage extends Component {
     );
   }
 
-  controlItems(extension) {
+  controlItems(name) {
     const items = new ItemList();
-    const enabled = this.isEnabled(extension.name);
+    const enabled = this.isEnabled(name);
 
-    if (app.extensionSettings[extension.name]) {
+    if (app.extensionSettings[name]) {
       items.add('settings', Button.component({
         icon: 'cog',
-        children: 'Settings',
-        onclick: app.extensionSettings[extension.name]
+        children: app.translator.trans('core.admin.extensions.settings_button'),
+        onclick: app.extensionSettings[name]
       }));
     }
-
-    items.add('toggle', Button.component({
-      icon: 'power-off',
-      children: enabled ? 'Disable' : 'Enable',
-      onclick: () => {
-        app.request({
-          url: app.forum.attribute('apiUrl') + '/extensions/' + extension.name,
-          method: 'PATCH',
-          data: {enabled: !enabled}
-        }).then(() => window.location.reload());
-
-        app.modal.show(new LoadingModal());
-      }
-    }));
 
     if (!enabled) {
       items.add('uninstall', Button.component({
         icon: 'trash-o',
-        children: 'Uninstall',
+        children: app.translator.trans('core.admin.extensions.uninstall_button'),
         onclick: () => {
           app.request({
-            url: app.forum.attribute('apiUrl') + '/extensions/' + extension.name,
-            method: 'DELETE',
+            url: app.forum.attribute('apiUrl') + '/extensions/' + name,
+            method: 'DELETE'
           }).then(() => window.location.reload());
 
           app.modal.show(new LoadingModal());
@@ -97,19 +88,27 @@ export default class ExtensionsPage extends Component {
       }));
     }
 
-    // items.add('separator2', Separator.component());
-
-    // items.add('support', LinkButton.component({
-    //   icon: 'support',
-    //   children: 'Support'
-    // }));
-
     return items;
   }
 
   isEnabled(name) {
-    const enabled = JSON.parse(app.config.extensions_enabled);
+    const enabled = JSON.parse(app.settings.extensions_enabled);
 
     return enabled.indexOf(name) !== -1;
+  }
+
+  toggle(id) {
+    const enabled = this.isEnabled(id);
+
+    app.request({
+      url: app.forum.attribute('apiUrl') + '/extensions/' + id,
+      method: 'PATCH',
+      data: {enabled: !enabled}
+    }).then(() => {
+      if (!enabled) localStorage.setItem('enabledExtension', id);
+      window.location.reload();
+    });
+
+    app.modal.show(new LoadingModal());
   }
 }

@@ -1,5 +1,6 @@
 import highlight from 'flarum/helpers/highlight';
 import avatar from 'flarum/helpers/avatar';
+import username from 'flarum/helpers/username';
 
 /**
  * The `UsersSearchSource` finds and displays user search results in the search
@@ -22,15 +23,20 @@ export default class UsersSearchResults {
     if (!results.length) return '';
 
     return [
-      <li className="Dropdown-header">{app.trans('core.users')}</li>,
-      results.map(user => (
-        <li className="UserSearchResult" data-index={'users' + user.id()}>
-          <a href={app.route.user(user)} config={m.route}>
-            {avatar(user)}
-            {highlight(user.username(), query)}
-          </a>
-        </li>
-      ))
+      <li className="Dropdown-header">{app.translator.trans('core.forum.search.users_heading')}</li>,
+      results.map(user => {
+        const name = username(user);
+        name.children[0] = highlight(name.children[0], query);
+
+        return (
+          <li className="UserSearchResult" data-index={'users' + user.id()}>
+            <a href={app.route.user(user)} config={m.route}>
+              {avatar(user)}
+              {name}
+            </a>
+          </li>
+        );
+      })
     ];
   }
 }

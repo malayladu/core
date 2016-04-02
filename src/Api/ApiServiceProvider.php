@@ -10,48 +10,69 @@
 
 namespace Flarum\Api;
 
-use Flarum\Api\Serializers\ActivitySerializer;
-use Flarum\Api\Serializers\NotificationSerializer;
-use Flarum\Core\Users\Guest;
-use Flarum\Events\RegisterApiRoutes;
-use Flarum\Events\RegisterActivityTypes;
-use Flarum\Events\RegisterNotificationTypes;
+use Flarum\Api\Controller\AbstractSerializeController;
+use Flarum\Api\Serializer\AbstractSerializer;
+use Flarum\Api\Serializer\NotificationSerializer;
+use Flarum\Event\ConfigureApiRoutes;
+use Flarum\Event\ConfigureNotificationTypes;
+use Flarum\Foundation\AbstractServiceProvider;
+use Flarum\Http\GenerateRouteHandlerTrait;
 use Flarum\Http\RouteCollection;
-use Flarum\Http\UrlGenerator;
-use Illuminate\Support\ServiceProvider;
-use Psr\Http\Message\ServerRequestInterface;
+use Tobscure\JsonApi\ErrorHandler;
+use Tobscure\JsonApi\Exception\Handler\FallbackExceptionHandler;
+use Tobscure\JsonApi\Exception\Handler\InvalidParameterExceptionHandler;
 
-class ApiServiceProvider extends ServiceProvider
+class ApiServiceProvider extends AbstractServiceProvider
 {
+    use GenerateRouteHandlerTrait;
+
     /**
-     * Register the service provider.
-     *
-     * @return void
+     * {@inheritdoc}
      */
     public function register()
     {
-        $this->app->bind('flarum.actor', function () {
-            return new Guest;
+        $this->app->singleton(UrlGenerator::class, function () {
+            return new UrlGenerator($this->app, $this->app->make('flarum.api.routes'));
         });
 
-        $this->app->singleton(
-            'Flarum\Http\UrlGeneratorInterface',
-            function () {
-                return new UrlGenerator($this->app->make('flarum.api.routes'));
-            }
-        );
+        $this->app->singleton('flarum.api.routes', function () {
+            return new RouteCollection;
+        });
+
+        $this->app->singleton(ErrorHandler::class, function () {
+            $handler = new ErrorHandler;
+
+            $handler->registerHandler(new Handler\FloodingExceptionHandler);
+            $handler->registerHandler(new Handler\IlluminateValidationExceptionHandler);
+            $handler->registerHandler(new Handler\InvalidAccessTokenExceptionHandler);
+            $handler->registerHandler(new Handler\InvalidConfirmationTokenExceptionHandler);
+            $handler->registerHandler(new Handler\MethodNotAllowedExceptionHandler);
+            $handler->registerHandler(new Handler\ModelNotFoundExceptionHandler);
+            $handler->registerHandler(new Handler\PermissionDeniedExceptionHandler);
+            $handler->registerHandler(new Handler\RouteNotFoundExceptionHandler);
+            $handler->registerHandler(new Handler\TokenMismatchExceptionHandler);
+            $handler->registerHandler(new Handler\ValidationExceptionHandler);
+            $handler->registerHandler(new InvalidParameterExceptionHandler);
+            $handler->registerHandler(new FallbackExceptionHandler($this->app->inDebugMode()));
+
+            return $handler;
+        });
     }
 
     /**
-     * Bootstrap the application events.
-     *
-     * @return void
+     * {@inheritdoc}
      */
     public function boot()
     {
-        $this->routes();
+        $this->populateRoutes($this->app->make('flarum.api.routes'));
 
         $this->registerNotificationSerializers();
+
+        AbstractSerializeController::setContainer($this->app);
+        AbstractSerializeController::setEventDispatcher($events = $this->app->make('events'));
+
+        AbstractSerializer::setContainer($this->app);
+        AbstractSerializer::setEventDispatcher($events);
     }
 
     /**
@@ -61,46 +82,46 @@ class ApiServiceProvider extends ServiceProvider
     {
         $blueprints = [];
         $serializers = [
-            'discussionRenamed' => 'Flarum\Api\Serializers\DiscussionBasicSerializer'
+            'discussionRenamed' => 'Flarum\Api\Serializer\DiscussionBasicSerializer'
         ];
 
-        event(new RegisterNotificationTypes($blueprints, $serializers));
+        $this->app->make('events')->fire(
+            new ConfigureNotificationTypes($blueprints, $serializers)
+        );
 
         foreach ($serializers as $type => $serializer) {
             NotificationSerializer::setSubjectSerializer($type, $serializer);
         }
     }
 
-    protected function routes()
+    /**
+     * Populate the API routes.
+     *
+     * @param RouteCollection $routes
+     */
+    protected function populateRoutes(RouteCollection $routes)
     {
-        $this->app->instance('flarum.api.routes', $routes = new RouteCollection);
+        $toController = $this->getHandlerGenerator($this->app);
 
         // Get forum information
         $routes->get(
             '/forum',
-            'flarum.api.forum.show',
-            $this->action('Flarum\Api\Actions\Forum\ShowAction')
-        );
-
-        // Save forum information
-        $routes->patch(
-            '/forum',
-            'flarum.api.forum.update',
-            $this->action('Flarum\Api\Actions\Forum\UpdateAction')
+            'forum.show',
+            $toController('Flarum\Api\Controller\ShowForumController')
         );
 
         // Retrieve authentication token
         $routes->post(
             '/token',
-            'flarum.api.token',
-            $this->action('Flarum\Api\Actions\TokenAction')
+            'token',
+            $toController('Flarum\Api\Controller\TokenController')
         );
 
         // Send forgot password email
         $routes->post(
             '/forgot',
-            'flarum.api.forgot',
-            $this->action('Flarum\Api\Actions\ForgotAction')
+            'forgot',
+            $toController('Flarum\Api\Controller\ForgotPasswordController')
         );
 
         /*
@@ -112,77 +133,84 @@ class ApiServiceProvider extends ServiceProvider
         // List users
         $routes->get(
             '/users',
-            'flarum.api.users.index',
-            $this->action('Flarum\Api\Actions\Users\IndexAction')
+            'users.index',
+            $toController('Flarum\Api\Controller\ListUsersController')
         );
 
         // Register a user
         $routes->post(
             '/users',
-            'flarum.api.users.create',
-            $this->action('Flarum\Api\Actions\Users\CreateAction')
+            'users.create',
+            $toController('Flarum\Api\Controller\CreateUserController')
         );
 
         // Get a single user
         $routes->get(
             '/users/{id}',
-            'flarum.api.users.show',
-            $this->action('Flarum\Api\Actions\Users\ShowAction')
+            'users.show',
+            $toController('Flarum\Api\Controller\ShowUserController')
         );
 
         // Edit a user
         $routes->patch(
             '/users/{id}',
-            'flarum.api.users.update',
-            $this->action('Flarum\Api\Actions\Users\UpdateAction')
+            'users.update',
+            $toController('Flarum\Api\Controller\UpdateUserController')
         );
 
         // Delete a user
         $routes->delete(
             '/users/{id}',
-            'flarum.api.users.delete',
-            $this->action('Flarum\Api\Actions\Users\DeleteAction')
+            'users.delete',
+            $toController('Flarum\Api\Controller\DeleteUserController')
         );
 
         // Upload avatar
         $routes->post(
             '/users/{id}/avatar',
-            'flarum.api.users.avatar.upload',
-            $this->action('Flarum\Api\Actions\Users\UploadAvatarAction')
+            'users.avatar.upload',
+            $toController('Flarum\Api\Controller\UploadAvatarController')
         );
 
         // Remove avatar
         $routes->delete(
             '/users/{id}/avatar',
-            'flarum.api.users.avatar.delete',
-            $this->action('Flarum\Api\Actions\Users\DeleteAvatarAction')
+            'users.avatar.delete',
+            $toController('Flarum\Api\Controller\DeleteAvatarController')
+        );
+
+        // send confirmation email
+        $routes->post(
+            '/users/{id}/send-confirmation',
+            'users.confirmation.send',
+            $toController('Flarum\Api\Controller\SendConfirmationEmailController')
         );
 
         /*
         |--------------------------------------------------------------------------
-        | Activity
+        | Notifications
         |--------------------------------------------------------------------------
         */
-
-        // List activity
-        $routes->get(
-            '/activity',
-            'flarum.api.activity.index',
-            $this->action('Flarum\Api\Actions\Activity\IndexAction')
-        );
 
         // List notifications for the current user
         $routes->get(
             '/notifications',
-            'flarum.api.notifications.index',
-            $this->action('Flarum\Api\Actions\Notifications\IndexAction')
+            'notifications.index',
+            $toController('Flarum\Api\Controller\ListNotificationsController')
+        );
+
+        // Mark all notifications as read
+        $routes->post(
+            '/notifications/read',
+            'notifications.readAll',
+            $toController('Flarum\Api\Controller\ReadAllNotificationsController')
         );
 
         // Mark a single notification as read
         $routes->patch(
             '/notifications/{id}',
-            'flarum.api.notifications.update',
-            $this->action('Flarum\Api\Actions\Notifications\UpdateAction')
+            'notifications.update',
+            $toController('Flarum\Api\Controller\UpdateNotificationController')
         );
 
         /*
@@ -194,36 +222,36 @@ class ApiServiceProvider extends ServiceProvider
         // List discussions
         $routes->get(
             '/discussions',
-            'flarum.api.discussions.index',
-            $this->action('Flarum\Api\Actions\Discussions\IndexAction')
+            'discussions.index',
+            $toController('Flarum\Api\Controller\ListDiscussionsController')
         );
 
         // Create a discussion
         $routes->post(
             '/discussions',
-            'flarum.api.discussions.create',
-            $this->action('Flarum\Api\Actions\Discussions\CreateAction')
+            'discussions.create',
+            $toController('Flarum\Api\Controller\CreateDiscussionController')
         );
 
         // Show a single discussion
         $routes->get(
             '/discussions/{id}',
-            'flarum.api.discussions.show',
-            $this->action('Flarum\Api\Actions\Discussions\ShowAction')
+            'discussions.show',
+            $toController('Flarum\Api\Controller\ShowDiscussionController')
         );
 
         // Edit a discussion
         $routes->patch(
             '/discussions/{id}',
-            'flarum.api.discussions.update',
-            $this->action('Flarum\Api\Actions\Discussions\UpdateAction')
+            'discussions.update',
+            $toController('Flarum\Api\Controller\UpdateDiscussionController')
         );
 
         // Delete a discussion
         $routes->delete(
             '/discussions/{id}',
-            'flarum.api.discussions.delete',
-            $this->action('Flarum\Api\Actions\Discussions\DeleteAction')
+            'discussions.delete',
+            $toController('Flarum\Api\Controller\DeleteDiscussionController')
         );
 
         /*
@@ -235,36 +263,36 @@ class ApiServiceProvider extends ServiceProvider
         // List posts, usually for a discussion
         $routes->get(
             '/posts',
-            'flarum.api.posts.index',
-            $this->action('Flarum\Api\Actions\Posts\IndexAction')
+            'posts.index',
+            $toController('Flarum\Api\Controller\ListPostsController')
         );
 
         // Create a post
         $routes->post(
             '/posts',
-            'flarum.api.posts.create',
-            $this->action('Flarum\Api\Actions\Posts\CreateAction')
+            'posts.create',
+            $toController('Flarum\Api\Controller\CreatePostController')
         );
 
         // Show a single or multiple posts by ID
         $routes->get(
             '/posts/{id}',
-            'flarum.api.posts.show',
-            $this->action('Flarum\Api\Actions\Posts\ShowAction')
+            'posts.show',
+            $toController('Flarum\Api\Controller\ShowPostController')
         );
 
         // Edit a post
         $routes->patch(
             '/posts/{id}',
-            'flarum.api.posts.update',
-            $this->action('Flarum\Api\Actions\Posts\UpdateAction')
+            'posts.update',
+            $toController('Flarum\Api\Controller\UpdatePostController')
         );
 
         // Delete a post
         $routes->delete(
             '/posts/{id}',
-            'flarum.api.posts.delete',
-            $this->action('Flarum\Api\Actions\Posts\DeleteAction')
+            'posts.delete',
+            $toController('Flarum\Api\Controller\DeletePostController')
         );
 
         /*
@@ -276,29 +304,29 @@ class ApiServiceProvider extends ServiceProvider
         // List groups
         $routes->get(
             '/groups',
-            'flarum.api.groups.index',
-            $this->action('Flarum\Api\Actions\Groups\IndexAction')
+            'groups.index',
+            $toController('Flarum\Api\Controller\ListGroupsController')
         );
 
         // Create a group
         $routes->post(
             '/groups',
-            'flarum.api.groups.create',
-            $this->action('Flarum\Api\Actions\Groups\CreateAction')
+            'groups.create',
+            $toController('Flarum\Api\Controller\CreateGroupController')
         );
 
         // Edit a group
         $routes->patch(
             '/groups/{id}',
-            'flarum.api.groups.update',
-            $this->action('Flarum\Api\Actions\Groups\UpdateAction')
+            'groups.update',
+            $toController('Flarum\Api\Controller\UpdateGroupController')
         );
 
         // Delete a group
         $routes->delete(
             '/groups/{id}',
-            'flarum.api.groups.delete',
-            $this->action('Flarum\Api\Actions\Groups\DeleteAction')
+            'groups.delete',
+            $toController('Flarum\Api\Controller\DeleteGroupController')
         );
 
         /*
@@ -310,50 +338,33 @@ class ApiServiceProvider extends ServiceProvider
         // Toggle an extension
         $routes->patch(
             '/extensions/{name}',
-            'flarum.api.extensions.update',
-            $this->action('Flarum\Api\Actions\Extensions\UpdateAction')
+            'extensions.update',
+            $toController('Flarum\Api\Controller\UpdateExtensionController')
         );
 
         // Uninstall an extension
         $routes->delete(
             '/extensions/{name}',
-            'flarum.api.extensions.delete',
-            $this->action('Flarum\Api\Actions\Extensions\DeleteAction')
+            'extensions.delete',
+            $toController('Flarum\Api\Controller\UninstallExtensionController')
         );
 
-        // Update config settings
+        // Update settings
         $routes->post(
-            '/config',
-            'flarum.api.config',
-            $this->action('Flarum\Api\Actions\ConfigAction')
+            '/settings',
+            'settings',
+            $toController('Flarum\Api\Controller\SetSettingsController')
         );
 
         // Update a permission
         $routes->post(
             '/permission',
-            'flarum.api.permission',
-            $this->action('Flarum\Api\Actions\PermissionAction')
+            'permission',
+            $toController('Flarum\Api\Controller\SetPermissionController')
         );
 
-        event(new RegisterApiRoutes($routes));
-    }
-
-    protected function action($class)
-    {
-        return function (ServerRequestInterface $httpRequest, $routeParams) use ($class) {
-            $action = app($class);
-            $actor = app('flarum.actor');
-
-            $input = array_merge(
-                $httpRequest->getQueryParams(),
-                $httpRequest->getAttributes(),
-                $httpRequest->getParsedBody(),
-                $routeParams
-            );
-
-            $request = new Request($input, $actor, $httpRequest);
-
-            return $action->handle($request);
-        };
+        $this->app->make('events')->fire(
+            new ConfigureApiRoutes($routes, $toController)
+        );
     }
 }

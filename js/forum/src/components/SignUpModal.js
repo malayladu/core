@@ -2,6 +2,8 @@ import Modal from 'flarum/components/Modal';
 import LogInModal from 'flarum/components/LogInModal';
 import avatar from 'flarum/helpers/avatar';
 import Button from 'flarum/components/Button';
+import LogInButtons from 'flarum/components/LogInButtons';
+import extractText from 'flarum/utils/extractText';
 
 /**
  * The `SignUpModal` component displays a modal dialog with a singup form.
@@ -11,10 +13,11 @@ import Button from 'flarum/components/Button';
  * - `username`
  * - `email`
  * - `password`
+ * - `token` An email token to sign up with.
  */
 export default class SignUpModal extends Modal {
-  constructor(...args) {
-    super(...args);
+  init() {
+    super.init();
 
     /**
      * The value of the username input.
@@ -36,13 +39,6 @@ export default class SignUpModal extends Modal {
      * @type {Function}
      */
     this.password = m.prop(this.props.password || '');
-
-    /**
-     * The user that has been signed up and that should be welcomed.
-     *
-     * @type {null|User}
-     */
-    this.welcomeUser = null;
   }
 
   className() {
@@ -50,7 +46,7 @@ export default class SignUpModal extends Modal {
   }
 
   title() {
-    return app.trans('core.sign_up');
+    return app.translator.trans('core.forum.sign_up.title');
   }
 
   content() {
@@ -65,84 +61,49 @@ export default class SignUpModal extends Modal {
   }
 
   body() {
-    const body = [(
+    return [
+      this.props.token ? '' : <LogInButtons/>,
+
       <div className="Form Form--centered">
         <div className="Form-group">
-          <input className="FormControl" name="username" placeholder={app.trans('core.username')}
+          <input className="FormControl" name="username" type="text" placeholder={extractText(app.translator.trans('core.forum.sign_up.username_placeholder'))}
             value={this.username()}
             onchange={m.withAttr('value', this.username)}
             disabled={this.loading} />
         </div>
 
         <div className="Form-group">
-          <input className="FormControl" name="email" type="email" placeholder={app.trans('core.email')}
+          <input className="FormControl" name="email" type="email" placeholder={extractText(app.translator.trans('core.forum.sign_up.email_placeholder'))}
             value={this.email()}
             onchange={m.withAttr('value', this.email)}
-            disabled={this.loading} />
+            disabled={this.loading || (this.props.token && this.props.email)} />
         </div>
 
-        <div className="Form-group">
-          <input className="FormControl" name="password" type="password" placeholder={app.trans('core.password')}
-            value={this.password()}
-            onchange={m.withAttr('value', this.password)}
-            disabled={this.loading} />
-        </div>
+        {this.props.token ? '' : (
+          <div className="Form-group">
+            <input className="FormControl" name="password" type="password" placeholder={extractText(app.translator.trans('core.forum.sign_up.password_placeholder'))}
+              value={this.password()}
+              onchange={m.withAttr('value', this.password)}
+              disabled={this.loading} />
+          </div>
+        )}
 
         <div className="Form-group">
-          {Button.component({
-            className: 'Button Button--primary Button--block',
-            type: 'submit',
-            loading: this.loading,
-            children: app.trans('core.sign_up')
-          })}
+          <Button
+            className="Button Button--primary Button--block"
+            type="submit"
+            loading={this.loading}>
+            {app.translator.trans('core.forum.sign_up.submit_button')}
+          </Button>
         </div>
       </div>
-    )];
-
-    if (this.welcomeUser) {
-      const user = this.welcomeUser;
-      const emailProviderName = user.email().split('@')[1];
-
-      const fadeIn = (element, isInitialized) => {
-        if (isInitialized) return;
-        $(element).hide().fadeIn();
-      };
-
-      body.push(
-        <div className="SignUpModal-welcome" style={{background: user.color()}} config={fadeIn}>
-          <div className="darkenBackground">
-            <div className="container">
-              {avatar(user)}
-              <h3>{app.trans('core.welcome_user', {user})}</h3>
-
-              {!user.isActivated() ? [
-                <p>{app.trans('core.confirmation_email_sent', {email: <strong>{user.email()}</strong>})}</p>,
-                <p>
-                  <a href={`http://${emailProviderName}`} className="Button Button--primary" target="_blank">
-                    {app.trans('core.go_to', {location: emailProviderName})}
-                  </a>
-                </p>
-              ] : (
-                <p>
-                  <button className="Button Button--primary" onclick={this.hide.bind(this)}>
-                    {app.trans('core.dismiss')}
-                  </button>
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    return body;
+    ];
   }
 
   footer() {
     return [
       <p className="SignUpModal-logIn">
-        {app.trans('core.before_log_in_link')}{' '}
-        <a onclick={this.logIn.bind(this)}>{app.trans('core.log_in')}</a>
+        {app.translator.trans('core.forum.sign_up.log_in_text', {a: <a onclick={this.logIn.bind(this)}/>})}
       </p>
     ];
   }
@@ -150,6 +111,8 @@ export default class SignUpModal extends Modal {
   /**
    * Open the log in modal, prefilling it with an email/username/password if
    * the user has entered one.
+   *
+   * @public
    */
   logIn() {
     const props = {
@@ -161,10 +124,10 @@ export default class SignUpModal extends Modal {
   }
 
   onready() {
-    if (this.props.username) {
+    if (this.props.username && !this.props.email) {
       this.$('[name=email]').select();
     } else {
-      super.onready();
+      this.$('[name=username]').select();
     }
   }
 
@@ -175,24 +138,39 @@ export default class SignUpModal extends Modal {
 
     const data = this.submitData();
 
-    app.store.createRecord('users').save(data).then(
-      user => {
-        this.welcomeUser = user;
-        this.loading = false;
-        m.redraw();
-      },
-      response => {
-        this.loading = false;
-        this.handleErrors(response.errors);
-      }
+    app.request({
+      url: app.forum.attribute('baseUrl') + '/register',
+      method: 'POST',
+      data,
+      errorHandler: this.onerror.bind(this)
+    }).then(
+      () => window.location.reload(),
+      this.loaded.bind(this)
     );
   }
 
+  /**
+   * Get the data that should be submitted in the sign-up request.
+   *
+   * @return {Object}
+   * @public
+   */
   submitData() {
-    return {
+    const data = {
       username: this.username(),
-      email: this.email(),
-      password: this.password()
+      email: this.email()
     };
+
+    if (this.props.token) {
+      data.token = this.props.token;
+    } else {
+      data.password = this.password();
+    }
+
+    if (this.props.avatarUrl) {
+      data.avatarUrl = this.props.avatarUrl;
+    }
+
+    return data;
   }
 }

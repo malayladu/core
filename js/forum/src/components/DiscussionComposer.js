@@ -1,4 +1,5 @@
 import ComposerBody from 'flarum/components/ComposerBody';
+import extractText from 'flarum/utils/extractText';
 
 /**
  * The `DiscussionComposer` component displays the composer content for starting
@@ -12,8 +13,8 @@ import ComposerBody from 'flarum/components/ComposerBody';
  * - `titlePlaceholder`
  */
 export default class DiscussionComposer extends ComposerBody {
-  constructor(...args) {
-    super(...args);
+  init() {
+    super.init();
 
     /**
      * The value of the title input.
@@ -26,16 +27,19 @@ export default class DiscussionComposer extends ComposerBody {
   static initProps(props) {
     super.initProps(props);
 
-    props.placeholder = props.placeholder || app.trans('core.write_a_post');
-    props.submitLabel = props.submitLabel || app.trans('core.post_discussion');
-    props.confirmExit = props.confirmExit || app.trans('core.confirm_discard_discussion');
-    props.titlePlaceholder = props.titlePlaceholder || app.trans('core.discussion_title');
+    props.placeholder = props.placeholder || extractText(app.translator.trans('core.forum.composer_discussion.body_placeholder'));
+    props.submitLabel = props.submitLabel || app.translator.trans('core.forum.composer_discussion.submit_button');
+    props.confirmExit = props.confirmExit || extractText(app.translator.trans('core.forum.composer_discussion.discard_confirmation'));
+    props.titlePlaceholder = props.titlePlaceholder || extractText(app.translator.trans('core.forum.composer_discussion.title_placeholder'));
+    props.className = 'ComposerBody--discussion';
   }
 
   headerItems() {
     const items = super.headerItems();
 
-    items.add('title', (
+    items.add('title', <h3>{app.translator.trans('core.forum.composer_discussion.title')}</h3>, 100);
+
+    items.add('discussionTitle', (
       <h3>
         <input className="FormControl"
           value={this.title()}
@@ -62,23 +66,6 @@ export default class DiscussionComposer extends ComposerBody {
     }
 
     m.redraw.strategy('none');
-  }
-
-  config(isInitialized, context) {
-    super.config(isInitialized, context);
-
-    // If the user presses the backspace key in the text editor, and the cursor
-    // is already at the start, then we'll move the focus back into the title
-    // input.
-    this.editor.$('textarea').keydown((e) => {
-      if (e.which === 8 && e.target.selectionStart === 0 && e.target.selectionEnd === 0) {
-        e.preventDefault();
-
-        const $title = this.$(':input:enabled:visible:first')[0];
-        $title.focus();
-        $title.selectionStart = $title.selectionEnd = $title.value.length;
-      }
-    });
   }
 
   preventExit() {
@@ -108,11 +95,7 @@ export default class DiscussionComposer extends ComposerBody {
         app.cache.discussionList.addDiscussion(discussion);
         m.route(app.route.discussion(discussion));
       },
-      response => {
-        this.loading = false;
-        m.redraw();
-        app.alertErrors(response.errors);
-      }
+      this.loaded.bind(this)
     );
   }
 }

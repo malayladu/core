@@ -47,11 +47,13 @@ export default class Navigation extends Component {
    */
   getBackButton() {
     const {history} = app;
+    const previous = history.getPrevious() || {};
 
     return LinkButton.component({
-      className: 'Button Button--icon Navigation-back',
+      className: 'Button Navigation-back ' + (previous.title ? '' : 'Button--icon'),
       href: history.backUrl(),
       icon: 'chevron-left',
+      children: previous.title,
       config: () => {},
       onclick: e => {
         if (e.shiftKey || e.ctrlKey || e.metaKey || e.which === 2) return;
@@ -93,7 +95,7 @@ export default class Navigation extends Component {
 
     return Button.component({
       className: 'Button Button--icon Navigation-drawer' +
-        (user && user.unreadNotificationsCount() ? ' unread' : ''),
+        (user && user.newNotificationsCount() ? ' new' : ''),
       onclick: e => {
         e.stopPropagation();
         drawer.show();
