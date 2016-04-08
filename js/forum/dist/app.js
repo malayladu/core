@@ -18902,6 +18902,14 @@ System.register('flarum/components/AlertManager', ['flarum/Component', 'flarum/c
             );
           }
         }, {
+          key: 'config',
+          value: function config(isInitialized, context) {
+            // Since this component is 'above' the content of the page (that is, it is a
+            // part of the global UI that persists between routes), we will flag the DOM
+            // to be retained across route changes.
+            context.retain = true;
+          }
+        }, {
           key: 'show',
           value: function show(component) {
             if (!(component instanceof Alert)) {
@@ -19188,7 +19196,7 @@ System.register('flarum/components/Button', ['flarum/Component', 'flarum/helpers
 
             // If nothing else is provided, we use the textual button content as tooltip
             if (!attrs.title && this.props.children) {
-              attrs.title = extractText(attrs.title);
+              attrs.title = extractText(this.props.children);
             }
 
             var iconName = extract(attrs, 'icon');
@@ -21279,7 +21287,7 @@ System.register('flarum/components/DiscussionRenamedPost', ['flarum/components/E
           key: 'description',
           value: function description(data) {
             var renamed = app.translator.trans('core.forum.post_stream.discussion_renamed_text', data);
-            var oldName = app.translator.trans('core.forum.post_stream.discussion_renamed_old_text', data);
+            var oldName = app.translator.trans('core.forum.post_stream.discussion_renamed_old_tooltip', data);
 
             return m(
               'span',
@@ -21748,10 +21756,9 @@ System.register('flarum/components/EditUserModal', ['flarum/components/Modal', '
                     'Username'
                   ),
                   m('input', { className: 'FormControl', placeholder: extractText(app.translator.trans('core.forum.edit_user.username_label')),
-                    value: this.username(),
-                    onchange: m.withAttr('value', this.username) })
+                    bidi: this.username })
                 ),
-                m(
+                app.session.user !== this.props.user ? [m(
                   'div',
                   { className: 'Form-group' },
                   m(
@@ -21763,11 +21770,9 @@ System.register('flarum/components/EditUserModal', ['flarum/components/Modal', '
                     'div',
                     null,
                     m('input', { className: 'FormControl', placeholder: extractText(app.translator.trans('core.forum.edit_user.email_label')),
-                      value: this.email(),
-                      onchange: m.withAttr('value', this.email) })
+                      bidi: this.email })
                   )
-                ),
-                m(
+                ), m(
                   'div',
                   { className: 'Form-group' },
                   m(
@@ -21790,10 +21795,9 @@ System.register('flarum/components/EditUserModal', ['flarum/components/Modal', '
                       'Set new password'
                     ),
                     this.setPassword() ? m('input', { className: 'FormControl', type: 'password', name: 'password', placeholder: extractText(app.translator.trans('core.forum.edit_user.password_label')),
-                      value: this.password(),
-                      onchange: m.withAttr('value', this.password) }) : ''
+                      bidi: this.password }) : ''
                   )
-                ),
+                )] : '',
                 m(
                   'div',
                   { className: 'Form-group EditUserModal-groups' },
@@ -21812,9 +21816,8 @@ System.register('flarum/components/EditUserModal', ['flarum/components/Modal', '
                         'label',
                         { className: 'checkbox' },
                         m('input', { type: 'checkbox',
-                          checked: _this3.groups[group.id()](),
-                          disabled: _this3.props.user.id() === '1' && group.id() === Group.ADMINISTRATOR_ID,
-                          onchange: m.withAttr('checked', _this3.groups[group.id()]) }),
+                          bidi: _this3.groups[group.id()],
+                          disabled: _this3.props.user.id() === '1' && group.id() === Group.ADMINISTRATOR_ID }),
                         GroupBadge.component({ group: group, label: '' }),
                         ' ',
                         group.nameSingular()
@@ -21848,9 +21851,12 @@ System.register('flarum/components/EditUserModal', ['flarum/components/Modal', '
 
             var data = {
               username: this.username(),
-              email: this.email(),
               relationships: { groups: groups }
             };
+
+            if (app.session.user !== this.props.user) {
+              data.email = this.email();
+            }
 
             if (this.setPassword()) {
               data.password = this.password();
@@ -22192,8 +22198,8 @@ System.register('flarum/components/GroupBadge', ['flarum/components/Badge'], fun
 });;
 'use strict';
 
-System.register('flarum/components/HeaderPrimary', ['flarum/Component', 'flarum/utils/ItemList', 'flarum/helpers/listItems', 'flarum/components/SelectDropdown', 'flarum/components/Button'], function (_export, _context) {
-  var Component, ItemList, listItems, SelectDropdown, Button, HeaderPrimary;
+System.register('flarum/components/HeaderPrimary', ['flarum/Component', 'flarum/utils/ItemList', 'flarum/helpers/listItems'], function (_export, _context) {
+  var Component, ItemList, listItems, HeaderPrimary;
   return {
     setters: [function (_flarumComponent) {
       Component = _flarumComponent.default;
@@ -22201,10 +22207,6 @@ System.register('flarum/components/HeaderPrimary', ['flarum/Component', 'flarum/
       ItemList = _flarumUtilsItemList.default;
     }, function (_flarumHelpersListItems) {
       listItems = _flarumHelpersListItems.default;
-    }, function (_flarumComponentsSelectDropdown) {
-      SelectDropdown = _flarumComponentsSelectDropdown.default;
-    }, function (_flarumComponentsButton) {
-      Button = _flarumComponentsButton.default;
     }],
     execute: function () {
       HeaderPrimary = function (_Component) {
@@ -22223,6 +22225,14 @@ System.register('flarum/components/HeaderPrimary', ['flarum/Component', 'flarum/
               { className: 'Header-controls' },
               listItems(this.items().toArray())
             );
+          }
+        }, {
+          key: 'config',
+          value: function config(isInitialized, context) {
+            // Since this component is 'above' the content of the page (that is, it is a
+            // part of the global UI that persists between routes), we will flag the DOM
+            // to be retained across route changes.
+            context.retain = true;
           }
         }, {
           key: 'items',
@@ -22278,6 +22288,14 @@ System.register('flarum/components/HeaderSecondary', ['flarum/Component', 'flaru
               { className: 'Header-controls' },
               listItems(this.items().toArray())
             );
+          }
+        }, {
+          key: 'config',
+          value: function config(isInitialized, context) {
+            // Since this component is 'above' the content of the page (that is, it is a
+            // part of the global UI that persists between routes), we will flag the DOM
+            // to be retained across route changes.
+            context.retain = true;
           }
         }, {
           key: 'items',
@@ -23264,6 +23282,9 @@ System.register('flarum/components/ModalManager', ['flarum/Component', 'flarum/c
           value: function config(isInitialized, context) {
             if (isInitialized) return;
 
+            // Since this component is 'above' the content of the page (that is, it is a
+            // part of the global UI that persists between routes), we will flag the DOM
+            // to be retained across route changes.
             context.retain = true;
 
             this.$().on('hidden.bs.modal', this.clear.bind(this)).on('shown.bs.modal', this.onready.bind(this));
@@ -30183,46 +30204,30 @@ System.register('flarum/utils/DiscussionControls', ['flarum/components/Discussio
           return items;
         },
         replyAction: function replyAction(goToLast, forceRefresh) {
-          var _this2 = this;
-
           var deferred = m.deferred();
 
-          // Define a function that will check the user's permission to reply, and
-          // either open the reply composer for this discussion and resolve the
-          // promise, or reject it.
-          var reply = function reply() {
-            if (_this2.canReply()) {
-              if (goToLast && app.viewingDiscussion(_this2)) {
-                app.current.stream.goToLast();
-              }
-
+          if (app.session.user) {
+            if (this.canReply()) {
               var component = app.composer.component;
-              if (!app.composingReplyTo(_this2) || forceRefresh) {
+              if (!app.composingReplyTo(this) || forceRefresh) {
                 component = new ReplyComposer({
                   user: app.session.user,
-                  discussion: _this2
+                  discussion: this
                 });
                 app.composer.load(component);
               }
               app.composer.show();
 
+              if (goToLast && app.viewingDiscussion(this)) {
+                app.current.stream.goToNumber('reply');
+              }
+
               deferred.resolve(component);
             } else {
               deferred.reject();
             }
-          };
-
-          // If the user is logged in, then we can run that function right away. But
-          // if they're not, we'll prompt them to log in and then run the function
-          // after the discussion has reloaded.
-          if (app.session.user) {
-            reply();
           } else {
-            app.modal.show(new LogInModal({
-              onlogin: function onlogin() {
-                return app.current.one('loaded', reply);
-              }
-            }));
+            app.modal.show(new LogInModal());
           }
 
           return deferred.promise;
@@ -30238,7 +30243,7 @@ System.register('flarum/utils/DiscussionControls', ['flarum/components/Discussio
           return this.save({ isHidden: false });
         },
         deleteAction: function deleteAction() {
-          var _this3 = this;
+          var _this2 = this;
 
           if (confirm(extractText(app.translator.trans('core.forum.discussion_controls.delete_confirmation')))) {
             // If we're currently viewing the discussion that was deleted, go back
@@ -30250,14 +30255,14 @@ System.register('flarum/utils/DiscussionControls', ['flarum/components/Discussio
             return this.delete().then(function () {
               // If there is a discussion list in the cache, remove this discussion.
               if (app.cache.discussionList) {
-                app.cache.discussionList.removeDiscussion(_this3);
+                app.cache.discussionList.removeDiscussion(_this2);
                 m.redraw();
               }
             });
           }
         },
         renameAction: function renameAction() {
-          var _this4 = this;
+          var _this3 = this;
 
           var currentTitle = this.title();
           var title = prompt(extractText(app.translator.trans('core.forum.discussion_controls.rename_text')), currentTitle);
@@ -30267,7 +30272,7 @@ System.register('flarum/utils/DiscussionControls', ['flarum/components/Discussio
           // indicating that the discussion was renamed.
           if (title && title !== currentTitle) {
             return this.save({ title: title }).then(function () {
-              if (app.viewingDiscussion(_this4)) {
+              if (app.viewingDiscussion(_this3)) {
                 app.current.stream.update();
               }
               m.redraw();
