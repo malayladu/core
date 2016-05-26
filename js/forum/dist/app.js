@@ -18418,10 +18418,12 @@ System.register('flarum/App', ['flarum/utils/ItemList', 'flarum/components/Alert
 
         babelHelpers.createClass(App, [{
           key: 'boot',
-          value: function boot() {
+          value: function boot(data) {
             var _this = this;
 
-            this.translator.locale = this.locale;
+            this.data = data;
+
+            this.translator.locale = data.locale;
 
             this.initializers.toArray().forEach(function (initializer) {
               return initializer(_this);
@@ -18430,9 +18432,9 @@ System.register('flarum/App', ['flarum/utils/ItemList', 'flarum/components/Alert
         }, {
           key: 'preloadedDocument',
           value: function preloadedDocument() {
-            if (app.preload.document) {
-              var results = app.store.pushPayload(app.preload.document);
-              app.preload.document = null;
+            if (this.data.document) {
+              var results = this.store.pushPayload(this.data.document);
+              this.data.document = null;
 
               return results;
             }
@@ -18995,10 +18997,11 @@ System.register('flarum/components/AvatarEditor', ['flarum/Component', 'flarum/h
               avatar(user),
               m(
                 'a',
-                { className: 'Dropdown-toggle',
+                { className: user.avatarUrl() ? "Dropdown-toggle" : "Dropdown-toggle AvatarEditor--noAvatar",
+                  title: app.translator.trans('core.forum.user.avatar_upload_tooltip'),
                   'data-toggle': 'dropdown',
                   onclick: this.quickUpload.bind(this) },
-                this.loading ? LoadingIndicator.component() : icon('pencil')
+                this.loading ? LoadingIndicator.component() : user.avatarUrl() ? icon('pencil') : icon('plus-circle')
               ),
               m(
                 'ul',
@@ -19338,7 +19341,7 @@ System.register('flarum/components/ChangeEmailModal', ['flarum/components/Modal'
                   'div',
                   { className: 'Form-group' },
                   m('input', { type: 'password', name: 'password', className: 'FormControl',
-                    placeholder: app.translator.trans('core.forum.change_email.confirm_password_label'),
+                    placeholder: app.translator.trans('core.forum.change_email.confirm_password_placeholder'),
                     bidi: this.password,
                     disabled: this.loading })
                 ),
@@ -21734,7 +21737,7 @@ System.register('flarum/components/EditUserModal', ['flarum/components/Modal', '
         }, {
           key: 'title',
           value: function title() {
-            return 'Edit User';
+            return app.translator.trans('core.forum.edit_user.title');
           }
         }, {
           key: 'content',
@@ -22304,14 +22307,14 @@ System.register('flarum/components/HeaderSecondary', ['flarum/Component', 'flaru
 
             items.add('search', app.search.render(), 30);
 
-            if (Object.keys(app.locales).length > 1) {
+            if (Object.keys(app.data.locales).length > 1) {
               var locales = [];
 
               var _loop = function _loop(locale) {
                 locales.push(Button.component({
-                  active: app.locale === locale,
-                  children: app.locales[locale],
-                  icon: app.locale === locale ? 'check' : true,
+                  active: app.data.locale === locale,
+                  children: app.data.locales[locale],
+                  icon: app.data.locale === locale ? 'check' : true,
                   onclick: function onclick() {
                     if (app.session.user) {
                       app.session.user.savePreferences({ locale: locale }).then(function () {
@@ -22325,7 +22328,7 @@ System.register('flarum/components/HeaderSecondary', ['flarum/Component', 'flaru
                 }));
               };
 
-              for (var locale in app.locales) {
+              for (var locale in app.data.locales) {
                 _loop(locale);
               }
 
@@ -24350,13 +24353,11 @@ System.register('flarum/components/Post', ['flarum/Component', 'flarum/utils/Sub
 });;
 'use strict';
 
-System.register('flarum/components/PostEdited', ['flarum/Component', 'flarum/helpers/icon', 'flarum/utils/humanTime', 'flarum/utils/extractText'], function (_export, _context) {
-  var Component, icon, humanTime, extractText, PostEdited;
+System.register('flarum/components/PostEdited', ['flarum/Component', 'flarum/utils/humanTime', 'flarum/utils/extractText'], function (_export, _context) {
+  var Component, humanTime, extractText, PostEdited;
   return {
     setters: [function (_flarumComponent) {
       Component = _flarumComponent.default;
-    }, function (_flarumHelpersIcon) {
-      icon = _flarumHelpersIcon.default;
     }, function (_flarumUtilsHumanTime) {
       humanTime = _flarumUtilsHumanTime.default;
     }, function (_flarumUtilsExtractText) {
@@ -24376,12 +24377,12 @@ System.register('flarum/components/PostEdited', ['flarum/Component', 'flarum/hel
           value: function view() {
             var post = this.props.post;
             var editUser = post.editUser();
-            var title = extractText(app.translator.trans('core.forum.post.edited_tooltip', { user: editUser, ago: humanTime(post.editTime()) }));
+            var editedInfo = extractText(app.translator.trans('core.forum.post.edited_tooltip', { user: editUser, ago: humanTime(post.editTime()) }));
 
             return m(
               'span',
-              { className: 'PostEdited', title: title },
-              icon('pencil')
+              { className: 'PostEdited', title: editedInfo },
+              app.translator.trans('core.forum.post.edited_text')
             );
           }
         }, {
@@ -24457,7 +24458,17 @@ System.register('flarum/components/PostMeta', ['flarum/Component', 'flarum/helpe
                   app.translator.trans('core.forum.post.number_tooltip', { number: post.number() })
                 ),
                 ' ',
-                fullTime(time),
+                m(
+                  'span',
+                  { className: 'PostMeta-time' },
+                  fullTime(time)
+                ),
+                ' ',
+                m(
+                  'span',
+                  { className: 'PostMeta-ip' },
+                  post.data.attributes.ipAddress
+                ),
                 touch ? m(
                   'a',
                   { className: 'Button PostMeta-permalink', href: permalink },
@@ -25140,7 +25151,7 @@ System.register('flarum/components/PostStreamScrubber', ['flarum/Component', 'fl
               index: m(
                 'span',
                 { className: 'Scrubber-index' },
-                retain || formatNumber(Math.ceil(this.index + this.visible))
+                retain || formatNumber(Math.min(Math.ceil(this.index + this.visible), count))
               ),
               count: m(
                 'span',
@@ -26138,8 +26149,8 @@ System.register('flarum/components/RequestErrorModal', ['flarum/components/Modal
 });;
 'use strict';
 
-System.register('flarum/components/Search', ['flarum/Component', 'flarum/components/LoadingIndicator', 'flarum/utils/ItemList', 'flarum/utils/classList', 'flarum/utils/extractText', 'flarum/helpers/icon', 'flarum/components/DiscussionsSearchSource', 'flarum/components/UsersSearchSource'], function (_export, _context) {
-  var Component, LoadingIndicator, ItemList, classList, extractText, icon, DiscussionsSearchSource, UsersSearchSource, Search;
+System.register('flarum/components/Search', ['flarum/Component', 'flarum/components/LoadingIndicator', 'flarum/utils/ItemList', 'flarum/utils/classList', 'flarum/utils/extractText', 'flarum/utils/KeyboardNavigatable', 'flarum/helpers/icon', 'flarum/components/DiscussionsSearchSource', 'flarum/components/UsersSearchSource'], function (_export, _context) {
+  var Component, LoadingIndicator, ItemList, classList, extractText, KeyboardNavigatable, icon, DiscussionsSearchSource, UsersSearchSource, Search;
   return {
     setters: [function (_flarumComponent) {
       Component = _flarumComponent.default;
@@ -26151,6 +26162,8 @@ System.register('flarum/components/Search', ['flarum/Component', 'flarum/compone
       classList = _flarumUtilsClassList.default;
     }, function (_flarumUtilsExtractText) {
       extractText = _flarumUtilsExtractText.default;
+    }, function (_flarumUtilsKeyboardNavigatable) {
+      KeyboardNavigatable = _flarumUtilsKeyboardNavigatable.default;
     }, function (_flarumHelpersIcon) {
       icon = _flarumHelpersIcon.default;
     }, function (_flarumComponentsDiscussionsSearchSource) {
@@ -26287,38 +26300,17 @@ System.register('flarum/components/Search', ['flarum/Component', 'flarum/compone
               search.setIndex(search.selectableItems().index(this));
             });
 
-            // Handle navigation key events on the search input.
-            this.$('input').on('keydown', function (e) {
-              switch (e.which) {
-                case 40:case 38:
-                  // Down/Up
-                  _this3.setIndex(_this3.getCurrentNumericIndex() + (e.which === 40 ? 1 : -1), true);
-                  e.preventDefault();
-                  break;
+            var $input = this.$('input');
 
-                case 13:
-                  // Return
-                  if (_this3.value()) {
-                    m.route(_this3.getItem(_this3.index).find('a').attr('href'));
-                  } else {
-                    _this3.clear();
-                  }
-                  _this3.$('input').blur();
-                  break;
+            this.navigator = new KeyboardNavigatable();
+            this.navigator.onUp(function () {
+              return _this3.setIndex(_this3.getCurrentNumericIndex() - 1, true);
+            }).onDown(function () {
+              return _this3.setIndex(_this3.getCurrentNumericIndex() + 1, true);
+            }).onSelect(this.selectResult.bind(this)).onCancel(this.clear.bind(this)).bindTo($input);
 
-                case 27:
-                  // Escape
-                  _this3.clear();
-                  break;
-
-                default:
-                // no default
-              }
-            })
-
-            // Handle input key events on the search input, triggering results to
-            // load.
-            .on('input focus', function () {
+            // Handle input key events on the search input, triggering results to load.
+            $input.on('input focus', function () {
               var query = this.value.toLowerCase();
 
               if (!query) return;
@@ -26353,6 +26345,17 @@ System.register('flarum/components/Search', ['flarum/Component', 'flarum/compone
           key: 'getCurrentSearch',
           value: function getCurrentSearch() {
             return app.current && typeof app.current.searching === 'function' && app.current.searching();
+          }
+        }, {
+          key: 'selectResult',
+          value: function selectResult() {
+            if (this.value()) {
+              m.route(this.getItem(this.index).find('a').attr('href'));
+            } else {
+              this.clear();
+            }
+
+            this.$('input').blur();
           }
         }, {
           key: 'clear',
@@ -28604,8 +28607,8 @@ System.register('flarum/initializers/boot', ['flarum/utils/ScrollListener', 'fla
 });;
 'use strict';
 
-System.register('flarum/initializers/components', ['flarum/components/CommentPost', 'flarum/components/DiscussionRenamedPost', 'flarum/components/PostedActivity', 'flarum/components/JoinedActivity', 'flarum/components/DiscussionRenamedNotification'], function (_export, _context) {
-  var CommentPost, DiscussionRenamedPost, PostedActivity, JoinedActivity, DiscussionRenamedNotification;
+System.register('flarum/initializers/components', ['flarum/components/CommentPost', 'flarum/components/DiscussionRenamedPost', 'flarum/components/DiscussionRenamedNotification'], function (_export, _context) {
+  var CommentPost, DiscussionRenamedPost, DiscussionRenamedNotification;
   function components(app) {
     app.postComponents.comment = CommentPost;
     app.postComponents.discussionRenamed = DiscussionRenamedPost;
@@ -28620,10 +28623,6 @@ System.register('flarum/initializers/components', ['flarum/components/CommentPos
       CommentPost = _flarumComponentsCommentPost.default;
     }, function (_flarumComponentsDiscussionRenamedPost) {
       DiscussionRenamedPost = _flarumComponentsDiscussionRenamedPost.default;
-    }, function (_flarumComponentsPostedActivity) {
-      PostedActivity = _flarumComponentsPostedActivity.default;
-    }, function (_flarumComponentsJoinedActivity) {
-      JoinedActivity = _flarumComponentsJoinedActivity.default;
     }, function (_flarumComponentsDiscussionRenamedNotification) {
       DiscussionRenamedNotification = _flarumComponentsDiscussionRenamedNotification.default;
     }],
@@ -28667,11 +28666,11 @@ System.register('flarum/initializers/humanTime', ['flarum/utils/humanTime'], fun
 System.register('flarum/initializers/preload', ['flarum/Session'], function (_export, _context) {
   var Session;
   function preload(app) {
-    app.store.pushPayload({ data: app.preload.data });
+    app.store.pushPayload({ data: app.data.resources });
 
     app.forum = app.store.getById('forums', 1);
 
-    app.session = new Session(app.store.getById('users', app.preload.session.userId), app.preload.session.csrfToken);
+    app.session = new Session(app.store.getById('users', app.data.session.userId), app.data.session.csrfToken);
   }
 
   _export('default', preload);
@@ -29731,7 +29730,7 @@ System.register('flarum/Translator', ['flarum/models/User', 'flarum/helpers/user
                   if (match[2]) {
                     open.shift();
                   } else {
-                    var tag = input[match[3]] || [];
+                    var tag = input[match[3]] || { tag: match[3], children: [] };
                     open[0].push(tag);
                     open.unshift(tag.children || tag);
                   }
@@ -29827,7 +29826,6 @@ System.register('flarum/Translator', ['flarum/models/User', 'flarum/helpers/user
               case 'ko':
               case 'ms':
               case 'th':
-              case 'tr':
               case 'vi':
               case 'zh':
                 return 0;
@@ -29880,6 +29878,7 @@ System.register('flarum/Translator', ['flarum/models/User', 'flarum/helpers/user
               case 'ta':
               case 'te':
               case 'tk':
+              case 'tr':
               case 'ur':
               case 'zu':
                 return number == 1 ? 0 : 1;
@@ -30716,6 +30715,121 @@ System.register("flarum/utils/ItemList", [], function (_export, _context) {
       }();
 
       _export("default", ItemList);
+    }
+  };
+});;
+'use strict';
+
+System.register('flarum/utils/KeyboardNavigatable', [], function (_export, _context) {
+  var KeyboardNavigatable;
+  return {
+    setters: [],
+    execute: function () {
+      KeyboardNavigatable = function () {
+        function KeyboardNavigatable() {
+          babelHelpers.classCallCheck(this, KeyboardNavigatable);
+
+          this.callbacks = {};
+
+          // By default, always handle keyboard navigation.
+          this.whenCallback = function () {
+            return true;
+          };
+        }
+
+        /**
+         * Provide a callback to be executed when navigating upwards.
+         *
+         * This will be triggered by the Up key.
+         *
+         * @public
+         * @param {Function} callback
+         * @return {KeyboardNavigatable}
+         */
+
+
+        babelHelpers.createClass(KeyboardNavigatable, [{
+          key: 'onUp',
+          value: function onUp(callback) {
+            this.callbacks[38] = function (e) {
+              e.preventDefault();
+              callback(e);
+            };
+
+            return this;
+          }
+        }, {
+          key: 'onDown',
+          value: function onDown(callback) {
+            this.callbacks[40] = function (e) {
+              e.preventDefault();
+              callback(e);
+            };
+
+            return this;
+          }
+        }, {
+          key: 'onSelect',
+          value: function onSelect(callback) {
+            this.callbacks[9] = this.callbacks[13] = function (e) {
+              e.preventDefault();
+              callback(e);
+            };
+
+            return this;
+          }
+        }, {
+          key: 'onCancel',
+          value: function onCancel(callback) {
+            this.callbacks[27] = function (e) {
+              e.stopPropagation();
+              e.preventDefault();
+              callback(e);
+            };
+
+            return this;
+          }
+        }, {
+          key: 'onRemove',
+          value: function onRemove(callback) {
+            this.callbacks[8] = function (e) {
+              if (e.target.selectionStart === 0 && e.target.selectionEnd === 0) {
+                callback(e);
+                e.preventDefault();
+              }
+            };
+
+            return this;
+          }
+        }, {
+          key: 'when',
+          value: function when(callback) {
+            this.whenCallback = callback;
+
+            return this;
+          }
+        }, {
+          key: 'bindTo',
+          value: function bindTo($element) {
+            // Handle navigation key events on the navigatable element.
+            $element.on('keydown', this.navigate.bind(this));
+          }
+        }, {
+          key: 'navigate',
+          value: function navigate(event) {
+            // This callback determines whether keyboard should be handled or ignored.
+            if (!this.whenCallback()) return;
+
+            var keyCallback = this.callbacks[event.which];
+            if (keyCallback) {
+              keyCallback(event);
+            }
+          }
+        }]);
+        return KeyboardNavigatable;
+      }();
+
+      _export('default', KeyboardNavigatable);
     }
   };
 });;

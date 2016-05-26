@@ -23,7 +23,8 @@
         "php": ">=5.5.9",
         "dflydev/fig-cookies": "^1.0.2",
         "doctrine/dbal": "^2.5",
-        "franzl/whoops-middleware": "^0.2.0",
+        "fortawesome/font-awesome": "^4.6",
+        "franzl/whoops-middleware": "^0.4.0",
         "illuminate/bus": "5.1.*",
         "illuminate/cache": "5.1.*",
         "illuminate/config": "5.1.*",
@@ -49,7 +50,7 @@
         "symfony/http-foundation": "^2.7",
         "symfony/translation": "^2.7",
         "symfony/yaml": "^2.7",
-        "s9e/text-formatter": "^0.4.12",
+        "s9e/text-formatter": "^0.5.1",
         "tobscure/json-api": "^0.3.0",
         "zendframework/zend-diactoros": "^1.1",
         "zendframework/zend-stratigility": "^1.1"

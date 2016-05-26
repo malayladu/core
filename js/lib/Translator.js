@@ -74,7 +74,7 @@ export default class Translator {
           if (match[2]) {
             open.shift();
           } else {
-            let tag = input[match[3]] || [];
+            let tag = input[match[3]] || {tag: match[3], children: []};
             open[0].push(tag);
             open.unshift(tag.children || tag);
           }
@@ -164,7 +164,6 @@ export default class Translator {
       case 'ko':
       case 'ms':
       case 'th':
-      case 'tr':
       case 'vi':
       case 'zh':
         return 0;
@@ -217,6 +216,7 @@ export default class Translator {
       case 'ta':
       case 'te':
       case 'tk':
+      case 'tr':
       case 'ur':
       case 'zu':
         return (number == 1) ? 0 : 1;
