@@ -1,4 +1,5 @@
 <?php
+
 /*
  * This file is part of Flarum.
  *
@@ -14,6 +15,9 @@ use DirectoryIterator;
 use Flarum\Locale\LocaleManager;
 use RuntimeException;
 
+/**
+ * @deprecated
+ */
 class ConfigureLocales
 {
     /**
@@ -61,6 +65,10 @@ class ConfigureLocales
 
         if (file_exists($file = $localeDir.'/config.js')) {
             $this->locales->addJsFile($locale, $file);
+        }
+
+        if (file_exists($file = $localeDir.'/config.css')) {
+            $this->locales->addCssFile($locale, $file);
         }
 
         foreach (new DirectoryIterator($localeDir) as $file) {

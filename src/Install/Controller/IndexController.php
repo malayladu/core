@@ -1,4 +1,5 @@
 <?php
+
 /*
  * This file is part of Flarum.
  *
@@ -39,7 +40,7 @@ class IndexController extends AbstractHtmlController
 
     /**
      * @param Request $request
-     * @return \Psr\Http\Message\ResponseInterface
+     * @return \Illuminate\Contracts\Support\Renderable
      */
     public function render(Request $request)
     {

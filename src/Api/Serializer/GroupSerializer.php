@@ -1,4 +1,5 @@
 <?php
+
 /*
  * This file is part of Flarum.
  *
@@ -10,7 +11,7 @@
 
 namespace Flarum\Api\Serializer;
 
-use Flarum\Core\Group;
+use Flarum\Group\Group;
 use InvalidArgumentException;
 use Symfony\Component\Translation\TranslatorInterface;
 
@@ -54,14 +55,6 @@ class GroupSerializer extends AbstractSerializer
             'color'        => $group->color,
             'icon'         => $group->icon,
         ];
-    }
-
-    /**
-     * @return \Tobscure\JsonApi\Relationship
-     */
-    protected function permissions($group)
-    {
-        return $this->hasMany($group, 'Flarum\Api\Serializers\PermissionSerializer');
     }
 
     /**

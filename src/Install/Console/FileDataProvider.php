@@ -1,4 +1,5 @@
 <?php
+
 /*
  * This file is part of Flarum.
  *
@@ -17,6 +18,7 @@ use Symfony\Component\Yaml\Yaml;
 class FileDataProvider implements DataProviderInterface
 {
     protected $default;
+    protected $debug = false;
     protected $baseUrl = null;
     protected $databaseConfiguration = [];
     protected $adminUser = [];
@@ -32,14 +34,22 @@ class FileDataProvider implements DataProviderInterface
 
         // Check if file exists before parsing content
         if (file_exists($configurationFile)) {
-            // Parse YAML
-            $configuration = Yaml::parse(file_get_contents($configurationFile));
+            $configurationFileContents = file_get_contents($configurationFile);
+            // Try parsing JSON
+            if (($json = json_decode($configurationFileContents, true)) !== null) {
+                //Use JSON if Valid
+                $configuration = $json;
+            } else {
+                //Else use YAML
+                $configuration = Yaml::parse($configurationFileContents);
+            }
 
             // Define configuration variables
+            $this->debug = $configuration['debug'] ?? false;
             $this->baseUrl = isset($configuration['baseUrl']) ? rtrim($configuration['baseUrl'], '/') : null;
-            $this->databaseConfiguration = isset($configuration['databaseConfiguration']) ? $configuration['databaseConfiguration'] : [];
-            $this->adminUser = isset($configuration['adminUser']) ? $configuration['adminUser'] : [];
-            $this->settings = isset($configuration['settings']) ? $configuration['settings'] : [];
+            $this->databaseConfiguration = $configuration['databaseConfiguration'] ?? [];
+            $this->adminUser = $configuration['adminUser'] ?? [];
+            $this->settings = $configuration['settings'] ?? [];
         } else {
             throw new Exception('Configuration file does not exist.');
         }
@@ -63,5 +73,10 @@ class FileDataProvider implements DataProviderInterface
     public function getSettings()
     {
         return $this->settings + $this->default->getSettings();
+    }
+
+    public function isDebugMode(): bool
+    {
+        return $this->debug;
     }
 }

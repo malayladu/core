@@ -1,4 +1,5 @@
 <?php
+
 /*
  * This file is part of Flarum.
  *
@@ -11,17 +12,18 @@
 namespace Flarum\Install\Controller;
 
 use Exception;
-use Flarum\Http\Controller\ControllerInterface;
 use Flarum\Http\SessionAuthenticator;
 use Flarum\Install\Console\DefaultsDataProvider;
 use Flarum\Install\Console\InstallCommand;
+use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface as Request;
+use Psr\Http\Server\RequestHandlerInterface;
 use Symfony\Component\Console\Input\StringInput;
 use Symfony\Component\Console\Output\StreamOutput;
 use Zend\Diactoros\Response;
 use Zend\Diactoros\Response\HtmlResponse;
 
-class InstallController implements ControllerInterface
+class InstallController implements RequestHandlerInterface
 {
     protected $command;
 
@@ -43,21 +45,29 @@ class InstallController implements ControllerInterface
 
     /**
      * @param Request $request
-     * @return \Psr\Http\Message\ResponseInterface
+     * @return ResponseInterface
      */
-    public function handle(Request $request)
+    public function handle(Request $request): ResponseInterface
     {
         $input = $request->getParsedBody();
 
         $data = new DefaultsDataProvider;
 
+        $host = array_get($input, 'mysqlHost');
+        $port = '3306';
+
+        if (str_contains($host, ':')) {
+            list($host, $port) = explode(':', $host, 2);
+        }
+
         $data->setDatabaseConfiguration([
             'driver'   => 'mysql',
-            'host'     => array_get($input, 'mysqlHost'),
+            'host'     => $host,
             'database' => array_get($input, 'mysqlDatabase'),
             'username' => array_get($input, 'mysqlUsername'),
             'password' => array_get($input, 'mysqlPassword'),
             'prefix'   => array_get($input, 'tablePrefix'),
+            'port'     => $port,
         ]);
 
         $data->setAdminUser([
@@ -67,7 +77,7 @@ class InstallController implements ControllerInterface
             'email'                 => array_get($input, 'adminEmail'),
         ]);
 
-        $baseUrl = rtrim((string) $request->getAttribute('originalUri'), '/');
+        $baseUrl = rtrim((string) $request->getUri(), '/');
         $data->setBaseUrl($baseUrl);
 
         $data->setSetting('forum_title', array_get($input, 'forumTitle'));

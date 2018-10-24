@@ -1,4 +1,5 @@
 <?php
+
 /*
  * This file is part of Flarum.
  *
@@ -10,7 +11,7 @@
 
 namespace Flarum\Event;
 
-use Flarum\Core\Notification\BlueprintInterface;
+use Flarum\Notification\Blueprint\BlueprintInterface;
 use InvalidArgumentException;
 use ReflectionClass;
 

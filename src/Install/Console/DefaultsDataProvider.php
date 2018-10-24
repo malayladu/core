@@ -1,4 +1,5 @@
 <?php
+
 /*
  * This file is part of Flarum.
  *
@@ -17,11 +18,14 @@ class DefaultsDataProvider implements DataProviderInterface
         'host'     => 'localhost',
         'database' => 'flarum',
         'username' => 'root',
-        'password' => 'root',
+        'password' => '',
         'prefix'   => '',
+        'port'     => '3306',
     ];
 
-    protected $baseUrl = 'http://flarum.dev';
+    protected $debug = false;
+
+    protected $baseUrl = 'http://flarum.local';
 
     protected $adminUser = [
         'username'              => 'admin',
@@ -93,5 +97,15 @@ class DefaultsDataProvider implements DataProviderInterface
     public function setSetting($key, $value)
     {
         $this->settings[$key] = $value;
+    }
+
+    public function isDebugMode(): bool
+    {
+        return $this->debug;
+    }
+
+    public function setDebugMode(bool $debug = true)
+    {
+        $this->debug = $debug;
     }
 }

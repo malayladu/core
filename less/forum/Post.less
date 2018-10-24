@@ -50,10 +50,11 @@
   }
 
   .UserOnline {
+    margin-right: 5px;
+
     & .icon {
       font-size: 12px;
     }
-
     & .fa-circle {
       color: @online-user-circle-color;
     }
@@ -92,6 +93,7 @@
   line-height: 1.7;
   position: relative;
   overflow: auto;
+  overflow-wrap: break-word;
 
   p, ul, ol, blockquote {
     margin-bottom: 1em;
@@ -134,6 +136,7 @@
     color: #666;
     font-size: 90%;
     border-radius: @border-radius;
+    overflow-wrap: normal;
 
     code {
       padding: 0;
@@ -169,29 +172,19 @@
   .Post-header, .Post-header a, .PostUser h3, .PostUser h3 a {
     color: @muted-more-color;
   }
-  &:not(.revealContent) .Post-header {
-    margin-bottom: 0;
+  &:not(.revealContent) {
+    .Post-header {
+      margin-bottom: 0;
+    }
+    .Post-body, .Post-footer, h3 .Avatar, .PostUser-badges {
+      display: none;
+    }
   }
   .Post-body, .Post-footer, h3 .Avatar, .PostUser-badges {
-    position: absolute;
-    visibility: hidden;
-    opacity: 0;
-    margin-top: -5px;
-    .transition(~"margin-top 0.2s, opacity 0.2s");
-  }
-  &.revealContent {
-    .Post-body, .Post-footer, h3 .Avatar, .PostUser-badges {
-      visibility: visible;
-      opacity: 0.5;
-      margin-top: 0;
-    }
-    .Post-body, .Post-footer, .PostUser-badges {
-      position: static;
-    }
+    opacity: 0.5;
   }
   .Post-header .Button--more {
-    background: fade(@muted-more-color, 30%);
-    color: @muted-more-color;
+    .Button--color(@muted-more-color, fade(@muted-more-color, 30%));
   }
 }
 .Post--loading {
@@ -226,6 +219,10 @@
   }
 }
 
+.PostEdited {
+  cursor: default;
+}
+
 .EventPost-icon {
   float: left;
 }
@@ -235,6 +232,9 @@
   }
   a {
     font-weight: bold;
+  }
+  .Post-footer {
+    margin-bottom: 0;
   }
 }
 .EventPost-info {
@@ -260,6 +260,7 @@
 }
 .Post-footer {
   margin-top: 5px;
+  margin-bottom: 20px;
 
   > ul {
     > li {
@@ -275,9 +276,6 @@
   margin-top: -5px;
   float: right;
   position: relative;
-
-  // Make sure the post actions are not covered by relatively positioned items in the post footer
-  z-index: 2;
 
   .transition(opacity 0.2s);
 

@@ -1,4 +1,5 @@
 <?php
+
 /*
  * This file is part of Flarum.
  *
@@ -11,11 +12,14 @@
 namespace Flarum\Extension;
 
 use Flarum\Database\Migrator;
-use Flarum\Event\ExtensionWasDisabled;
-use Flarum\Event\ExtensionWasEnabled;
-use Flarum\Event\ExtensionWasUninstalled;
+use Flarum\Extension\Event\Disabled;
+use Flarum\Extension\Event\Disabling;
+use Flarum\Extension\Event\Enabled;
+use Flarum\Extension\Event\Enabling;
+use Flarum\Extension\Event\Uninstalled;
 use Flarum\Foundation\Application;
 use Flarum\Settings\SettingsRepositoryInterface;
+use Illuminate\Contracts\Container\Container;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Arr;
@@ -79,7 +83,6 @@ class ExtensionManager
                 // Per default all extensions are installed if they are registered in composer.
                 $extension->setInstalled(true);
                 $extension->setVersion(Arr::get($package, 'version'));
-                $extension->setEnabled($this->isEnabled($extension->getId()));
 
                 $extensions->put($extension->getId(), $extension);
             }
@@ -109,23 +112,27 @@ class ExtensionManager
      */
     public function enable($name)
     {
-        if (! $this->isEnabled($name)) {
-            $extension = $this->getExtension($name);
-
-            $enabled = $this->getEnabled();
-
-            $enabled[] = $name;
-
-            $this->migrate($extension);
-
-            $this->publishAssets($extension);
-
-            $this->setEnabled($enabled);
-
-            $extension->setEnabled(true);
-
-            $this->dispatcher->fire(new ExtensionWasEnabled($extension));
+        if ($this->isEnabled($name)) {
+            return;
         }
+
+        $extension = $this->getExtension($name);
+
+        $this->dispatcher->dispatch(new Enabling($extension));
+
+        $enabled = $this->getEnabled();
+
+        $enabled[] = $name;
+
+        $this->migrate($extension);
+
+        $this->publishAssets($extension);
+
+        $this->setEnabled($enabled);
+
+        $extension->enable($this->app);
+
+        $this->dispatcher->dispatch(new Enabled($extension));
     }
 
     /**
@@ -137,17 +144,21 @@ class ExtensionManager
     {
         $enabled = $this->getEnabled();
 
-        if (($k = array_search($name, $enabled)) !== false) {
-            unset($enabled[$k]);
-
-            $extension = $this->getExtension($name);
-
-            $this->setEnabled($enabled);
-
-            $extension->setEnabled(false);
-
-            $this->dispatcher->fire(new ExtensionWasDisabled($extension));
+        if (($k = array_search($name, $enabled)) === false) {
+            return;
         }
+
+        $extension = $this->getExtension($name);
+
+        $this->dispatcher->dispatch(new Disabling($extension));
+
+        unset($enabled[$k]);
+
+        $this->setEnabled($enabled);
+
+        $extension->disable($this->app);
+
+        $this->dispatcher->dispatch(new Disabled($extension));
     }
 
     /**
@@ -167,7 +178,7 @@ class ExtensionManager
 
         $extension->setInstalled(false);
 
-        $this->dispatcher->fire(new ExtensionWasUninstalled($extension));
+        $this->dispatcher->dispatch(new Uninstalled($extension));
     }
 
     /**
@@ -192,7 +203,7 @@ class ExtensionManager
      */
     protected function unpublishAssets(Extension $extension)
     {
-        $this->filesystem->deleteDirectory($this->app->publicPath().'/assets/extensions/'.$extension);
+        $this->filesystem->deleteDirectory($this->app->publicPath().'/assets/extensions/'.$extension->getId());
     }
 
     /**
@@ -212,6 +223,7 @@ class ExtensionManager
      *
      * @param Extension $extension
      * @param bool|true $up
+     * @return array Notes from the migrator.
      */
     public function migrate(Extension $extension, $up = true)
     {
@@ -234,10 +246,11 @@ class ExtensionManager
      * Runs the database migrations to reset the database to its old state.
      *
      * @param Extension $extension
+     * @return array Notes from the migrator.
      */
     public function migrateDown(Extension $extension)
     {
-        $this->migrate($extension, false);
+        return $this->migrate($extension, false);
     }
 
     /**
@@ -253,29 +266,27 @@ class ExtensionManager
     /**
      * Get only enabled extensions.
      *
-     * @return Collection
+     * @return array
      */
     public function getEnabledExtensions()
     {
-        return $this->getExtensions()->only($this->getEnabled());
+        $extensions = $this->getExtensions();
+
+        return array_filter(array_map(function ($id) use ($extensions) {
+            return $extensions[$id] ?? null;
+        }, $this->getEnabled()));
     }
 
     /**
-     * Loads all bootstrap.php files of the enabled extensions.
+     * Call on all enabled extensions to extend the Flarum application.
      *
-     * @return Collection
+     * @param Container $app
      */
-    public function getEnabledBootstrappers()
+    public function extend(Container $app)
     {
-        $bootstrappers = new Collection;
-
         foreach ($this->getEnabledExtensions() as $extension) {
-            if ($this->filesystem->exists($file = $extension->getPath().'/bootstrap.php')) {
-                $bootstrappers->push($file);
-            }
+            $extension->extend($app);
         }
-
-        return $bootstrappers;
     }
 
     /**

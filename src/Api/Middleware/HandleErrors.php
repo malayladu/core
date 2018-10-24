@@ -1,4 +1,5 @@
 <?php
+
 /*
  * This file is part of Flarum.
  *
@@ -10,12 +11,14 @@
 
 namespace Flarum\Api\Middleware;
 
+use Exception;
 use Flarum\Api\ErrorHandler;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
-use Zend\Stratigility\ErrorMiddlewareInterface;
+use Psr\Http\Server\MiddlewareInterface as Middleware;
+use Psr\Http\Server\RequestHandlerInterface as Handler;
 
-class HandleErrors implements ErrorMiddlewareInterface
+class HandleErrors implements Middleware
 {
     /**
      * @var ErrorHandler
@@ -31,10 +34,14 @@ class HandleErrors implements ErrorMiddlewareInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Catch all errors that happen during further middleware execution.
      */
-    public function __invoke($e, Request $request, Response $response, callable $out = null)
+    public function process(Request $request, Handler $handler): Response
     {
-        return $this->errorHandler->handle($e);
+        try {
+            return $handler->handle($request);
+        } catch (Exception $e) {
+            return $this->errorHandler->handle($e);
+        }
     }
 }

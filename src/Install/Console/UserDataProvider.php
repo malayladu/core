@@ -1,4 +1,5 @@
 <?php
+
 /*
  * This file is part of Flarum.
  *
@@ -34,9 +35,17 @@ class UserDataProvider implements DataProviderInterface
 
     public function getDatabaseConfiguration()
     {
+        $host = $this->ask('Database host:');
+        $port = '3306';
+
+        if (str_contains($host, ':')) {
+            list($host, $port) = explode(':', $host, 2);
+        }
+
         return [
             'driver'   => 'mysql',
-            'host'     => $this->ask('Database host:'),
+            'host'     => $host,
+            'port'     => $port,
             'database' => $this->ask('Database name:'),
             'username' => $this->ask('Database user:'),
             'password' => $this->secret('Database password:'),
@@ -99,5 +108,10 @@ class UserDataProvider implements DataProviderInterface
         $question->setHidden(true)->setHiddenFallback(true);
 
         return $this->questionHelper->ask($this->input, $this->output, $question);
+    }
+
+    public function isDebugMode(): bool
+    {
+        return false;
     }
 }

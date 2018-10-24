@@ -1,4 +1,5 @@
 <?php
+
 /*
  * This file is part of Flarum.
  *
@@ -27,6 +28,6 @@ class Str
         $str = preg_replace('/-+/', '-', $str);
         $str = preg_replace('/-$|^-/', '', $str);
 
-        return $str ?: '-';
+        return $str;
     }
 }
